@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@source "../app/**/*.{ts,tsx}";
+@source "../components/**/*.{ts,tsx}";
+@source "../pages/**/*.{ts,tsx}";
+
+/* 1. VARIANT DARK HARUS DI LUAR @theme */
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* 2. Kita pake variabel biar layout lu aman gak ancur */
+:root {
+  --bg-color: #f8fafc;
+  --text-color: #1e293b;
+}
+
+/* 3. Pas dark mode aktif, variabelnya berubah */
+.dark {
+  --bg-color: #030712; 
+  --text-color: #f8fafc;
+}
+
+/* 4. Body manggil variabel */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
