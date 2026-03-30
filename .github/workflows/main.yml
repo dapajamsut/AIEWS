@@ -11,6 +11,8 @@ on:
     branches:
       - main
 
+  workflow_dispatch:
+
 permissions:
   actions: read
   contents: read
@@ -19,7 +21,6 @@ permissions:
 jobs:
 
   frontend-check:
-    if: github.ref == 'refs/heads/frontend' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -48,7 +49,6 @@ jobs:
 
 
   database-check:
-    if: github.ref == 'refs/heads/database' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -62,7 +62,6 @@ jobs:
 
 
   main-security:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
