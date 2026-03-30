@@ -11,10 +11,15 @@ on:
     branches:
       - main
 
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
 jobs:
 
   frontend-check:
-    if: github.ref == 'refs/heads/frontend'
+    if: github.ref == 'refs/heads/frontend' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -43,7 +48,7 @@ jobs:
 
 
   database-check:
-    if: github.ref == 'refs/heads/database'
+    if: github.ref == 'refs/heads/database' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -57,14 +62,14 @@ jobs:
 
 
   main-security:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run CodeQL security scan
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: javascript
