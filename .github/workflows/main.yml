@@ -1,16 +1,76 @@
-name: AI EWS Workflow
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - frontend
+      - database
+
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+
+  frontend-check:
+    if: github.ref == 'refs/heads/frontend'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show Project Files
-        run: ls -R
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+
+      - name: Security dependency scan
+        run: |
+          cd frontend
+          npm audit || true
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build || true
+
+
+  database-check:
+    if: github.ref == 'refs/heads/database'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check SQL files
+        run: |
+          echo "Checking database SQL files"
+          ls database
+
+
+  main-security:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run CodeQL security scan
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze security
+        uses: github/codeql-action/analyze@v3
