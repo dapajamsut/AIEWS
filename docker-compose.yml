@@ -1,4 +1,7 @@
+version: "3.9"
+
 services:
+
   backend:
     build: .
     container_name: laravel_app
@@ -7,17 +10,13 @@ services:
     depends_on:
       - db
     env_file:
-      - .env
-    volumes:
-      - .:/app
-    restart: unless-stopped
+    - .env
 
   frontend:
     build: ./frontend
     container_name: next_app
     ports:
       - "3000:3000"
-    restart: unless-stopped
 
   db:
     image: postgres:15
@@ -28,9 +27,3 @@ services:
       POSTGRES_DB: ews_db
     ports:
       - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-volumes:
-  db_data:
