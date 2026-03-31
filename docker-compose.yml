@@ -1,7 +1,6 @@
 version: "3.9"
 
 services:
-
   backend:
     build: .
     container_name: laravel_app
@@ -10,9 +9,9 @@ services:
     depends_on:
       - db
     env_file:
-    - .env
+      - .env
     volumes:
-    - .:/app
+      - .:/app
 
   frontend:
     build: ./frontend
