@@ -8,8 +8,6 @@ services:
       - db
     env_file:
       - .env
-    volumes:
-      - .:/app
     restart: unless-stopped
 
   frontend:
@@ -30,6 +28,7 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./database/dump:/docker-entrypoint-initdb.d
     restart: unless-stopped
 
 volumes:
