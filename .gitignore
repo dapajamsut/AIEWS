@@ -1,22 +1,40 @@
-*.log
-.DS_Store
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.fleet
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
-/auth.json
+# ENV (WAJIB)
+.env
+.env.*
+!.env.example
+
+# Laravel
+/vendor
 /node_modules
+/public/storage
+/storage/*
+!/storage/app/public
+/bootstrap/cache/*.php
+
+# React / Build
+/build
+/dist
 /public/build
 /public/hot
-/public/storage
-/storage/*.key
-/storage/pail
-Homestead.json
-Homestead.yaml
+
+# Logs
+*.log
+
+# IDE / Editor
+.vscode
+.idea
+.fleet
+.zed
+
+# OS
+.DS_Store
 Thumbs.db
+
+# Laravel misc
+.phpunit.result.cache
+.phpactor.json
+.auth.json
+
+# Keys
+*.pem
+*.key
