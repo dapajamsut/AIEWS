@@ -1,0 +1,47 @@
+_format_version: "3.0"
+
+services:
+  - name: laravel-api
+    url: http://10.60.195.147:8002
+
+    routes:
+      # 🔐 POST SENSOR (PAKAI API KEY)
+      - name: sensors-secure
+        paths:
+          - /api/sensors
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: key-auth
+
+      # 🌐 GET SENSOR (PUBLIC)
+      - name: sensors-public
+        paths:
+          - /api/sensors/latest
+        methods:
+          - GET
+        strip_path: false
+
+      # 🌐 API LAIN (LOGIN DLL)
+      - name: api-route
+        paths:
+          - /api
+        strip_path: false
+
+plugins:
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-Gateway: KONG"
+
+  - name: rate-limiting
+    config:
+      minute: 120
+      policy: local
+
+consumers:
+  - username: raspi
+    keyauth_credentials:
+      - key: "pikel2"
