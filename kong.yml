@@ -1,0 +1,9 @@
+_format_version: "2.1"
+
+services:
+  - name: laravel-backend
+    url: http://backend:8000
+    routes:
+      - name: laravel-route
+        paths:
+          - /api
