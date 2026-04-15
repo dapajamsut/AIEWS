@@ -16,7 +16,7 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
-    
+
   mediamtx:
     image: bluenviron/mediamtx
     volumes:
@@ -25,6 +25,7 @@ services:
       - "8554:8554"
       - "8888:8888"
       - "8889:8889"
+
   db:
     image: postgres:15
     container_name: postgres_db
@@ -37,6 +38,19 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./database/dump:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+  kong:
+    image: kong:latest
+    container_name: kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+    volumes:
+      - ./kong.yml:/kong/kong.yml
+    ports:
+      - "8080:8000"   # akses publik via Kong
+      - "8001:8001"   # admin API (opsional)
     restart: unless-stopped
 
 volumes:
