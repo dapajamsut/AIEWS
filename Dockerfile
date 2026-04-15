@@ -11,17 +11,12 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# COPY composer dulu
+# install dependency dulu (biar cache optimal)
 COPY composer.json composer.lock ./
-
-#  install dependency (ini bakal di-cache)
 RUN composer install --no-dev --no-scripts --prefer-dist
 
-#  baru copy semua project
+# copy semua file project (TANPA .env ideally)
 COPY . .
-
-# env + key
-RUN cp .env.example .env && php artisan key:generate
 
 EXPOSE 8000
 
