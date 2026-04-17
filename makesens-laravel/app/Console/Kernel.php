@@ -12,21 +12,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // Schedule the save sensor logs command based on settings
-        if (\Cache::get('logging_enabled', false)) {
-            $interval = \Cache::get('logging_interval', 5);
-            switch ($interval) {
-                case 2:
-                    $schedule->command('sensors:save-logs')->everyTwoMinutes();
-                    break;
-                case 5:
-                    $schedule->command('sensors:save-logs')->everyFiveMinutes();
-                    break;
-                case 10:
-                    $schedule->command('sensors:save-logs')->everyTenMinutes();
-                    break;
-            }
-        }
+        // Jalankan setiap menit; command itu sendiri yang memutuskan
+        // apakah sudah waktunya berdasarkan logging_interval di cache.
+        $schedule->command('log:save-sensors')->everyMinute();
+
+        // Export harian + hapus log, tepat tengah malam (WIB)
+        $schedule->command('log:daily-export')->dailyAt('00:00')->timezone('Asia/Jakarta');
     }
 
     /**

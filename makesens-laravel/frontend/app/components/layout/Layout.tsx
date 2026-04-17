@@ -42,7 +42,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       await axios.post(
-        "http://localhost:8000/api/logout",
+        "http://localhost:8002/api/logout",
         {},
         { withCredentials: true }
       );

@@ -12,47 +12,51 @@ class AuthenticatedSessionController extends Controller
 {
     /**
      * Handle an incoming authentication request.
+     * Returns a Sanctum personal access token (token-based, no cookies needed).
      */
     public function store(LoginRequest $request)
     {
         try {
             $request->authenticate();
 
-            $request->session()->regenerate();
+            // Hapus token lama agar tidak menumpuk
+            $request->user()->tokens()->delete();
+
+            // Buat token baru
+            $token = $request->user()->createToken('makesens-web')->plainTextToken;
 
             return response()->json([
-                'user' => $request->user(),
+                'user'  => $request->user(),
+                'token' => $token,
             ], 200);
+
         } catch (ValidationException $e) {
             return response()->json([
-                'message' => 'Login failed.',
-                'errors' => $e->errors(),
+                'message' => 'Login gagal. Email atau password salah.',
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Login failed.',
-                'error' => $e->getMessage(),
+                'message' => 'Login gagal.',
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Destroy an authenticated session.
+     * Destroy an authenticated session (revoke token).
      */
     public function destroy(Request $request)
     {
         try {
-            Auth::guard('web')->logout();
-
-            $request->session()->invalidate();
-
-            $request->session()->regenerateToken();
+            // Revoke token yang dipakai sekarang
+            $request->user('sanctum')?->currentAccessToken()?->delete();
 
             return response()->json(['message' => 'Logged out'], 200);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Logout failed.',
-                'error' => $e->getMessage(),
+                'message' => 'Logout gagal.',
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }

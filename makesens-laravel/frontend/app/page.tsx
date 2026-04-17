@@ -1,31 +1,68 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
 import Dashboard from "@/app/pages/Dashboard";
 import Layout from "@/app/components/layout/Layout";
 
-// Konfigurasi koneksi ke Laravel
-const api = axios.create({
-    baseURL: "http://localhost:8000",
-    withCredentials: true,
-});
+const BACKEND_URL = "http://localhost:8002";
+
 export default function Home() {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const checkAuth = async () => {
-            try {
-                const response = await api.get("/api/user");
-                setUser(response.data);
-                setLoading(false);
-            } catch (error) {
+            const token = localStorage.getItem("auth_token");
+
+            if (!token) {
                 window.location.href = "/login";
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/user`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Accept": "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    // Token expired / invalid
+                    localStorage.removeItem("auth_token");
+                    localStorage.removeItem("auth_user");
+                    window.location.href = "/login";
+                    return;
+                }
+
+                const data = await response.json();
+                setUser(data);
+            } catch {
+                window.location.href = "/login";
+            } finally {
+                setLoading(false);
             }
         };
+
         checkAuth();
     }, []);
+
+    const handleLogout = async () => {
+        const token = localStorage.getItem("auth_token");
+        try {
+            await fetch(`${BACKEND_URL}/api/logout`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Accept": "application/json",
+                },
+            });
+        } catch { /* silent */ } finally {
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("auth_user");
+            window.location.href = "/login";
+        }
+    };
 
     if (loading) {
         return (
@@ -45,18 +82,15 @@ export default function Home() {
                 <span className="text-sm font-medium text-blue-700">
                     Sistem Monitoring Aktif • User: <strong className="text-blue-900">{user?.name}</strong>
                 </span>
-                <button 
-                    onClick={async () => {
-                        await api.post("/api/logout");
-                        window.location.href = "/login";
-                    }}
+                <button
+                    onClick={handleLogout}
                     className="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1 rounded-full transition-colors"
                 >
                     Log Out
                 </button>
             </div>
-            
-            {/* Langsung render Dashboard tanpa header tambahan */}
+
+            {/* Langsung render Dashboard */}
             <Dashboard />
         </Layout>
     );

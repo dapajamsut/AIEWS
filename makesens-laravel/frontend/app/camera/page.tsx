@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Layout from "@/app/components/layout/Layout";
 import { SnapshotFeed } from "@/app/components/SnapshotFeed";
 import { DebrisDensitySidebar } from "@/app/components/DebrisDensitySidebar";
@@ -12,27 +12,101 @@ import {
   MapPin, 
   Clock, 
   ShieldCheck,
-  TrendingUp,
-  TrendingDown,
-  Minus
+  Database,
+  Download,
+  CheckCircle2
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 
 export default function CameraPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastUpdate, setLastUpdate] = useState("");
   const [countdown, setCountdown] = useState(300);
 
+  // State untuk riwayat air dari kamera (disimpan di localStorage)
+  const [waterLogs, setWaterLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [lastLogRefresh, setLastLogRefresh] = useState("");
+
+  // 🔥 State untuk threshold SIAGA dari API (sama dengan dashboard)
+  const [thresholds, setThresholds] = useState({
+    siaga1: { water: 400 },
+    siaga2: { water: 300 },
+    siaga3: { water: 150 },
+  });
+
+  // 🔥 State untuk nilai sensor WATER-01 realtime
+  const [waterSensorValue, setWaterSensorValue] = useState<number | null>(null);
+  const [sensorLoading, setSensorLoading] = useState(false);
+
   const CCTV_IMAGE_URL = `http://108.136.240.250:1984/api/frame.jpeg?src=banjir_cam&t=${refreshKey}`;
 
+  // 🔥 Ambil threshold dari API (sama dengan dashboard)
+  const fetchThresholds = useCallback(async () => {
+    try {
+      const res = await fetch("http://localhost:8002/api/thresholds?type=siaga", {
+        cache: "no-store",
+        headers: { apikey: "pikel2" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setThresholds({
+          siaga1: { water: Number(data.siaga1?.water ?? 400) },
+          siaga2: { water: Number(data.siaga2?.water ?? 300) },
+          siaga3: { water: Number(data.siaga3?.water ?? 150) },
+        });
+      }
+    } catch (error) {
+      console.error("Fetch thresholds error di camera:", error);
+    }
+  }, []);
+
+  // Dengarkan event ketika threshold diubah dari halaman threshold
+  useEffect(() => {
+    fetchThresholds();
+    const handleThresholdUpdate = () => {
+      fetchThresholds();
+    };
+    window.addEventListener("thresholdsUpdated", handleThresholdUpdate);
+    return () => window.removeEventListener("thresholdsUpdated", handleThresholdUpdate);
+  }, [fetchThresholds]);
+
+  // 🔥 Ambil nilai sensor WATER-01 realtime (sama seperti dashboard)
+  const fetchWaterSensor = useCallback(async () => {
+    try {
+      setSensorLoading(true);
+      const res = await fetch("http://localhost:8002/api/sensors/latest", {
+        cache: "no-store",
+        headers: { apikey: "pikel2" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const waterSensor = data.find((s: any) => s.type === "water");
+        if (waterSensor) {
+          setWaterSensorValue(Number(waterSensor.value));
+        }
+      }
+    } catch (error) {
+      console.error("Fetch water sensor error:", error);
+    } finally {
+      setSensorLoading(false);
+    }
+  }, []);
+
+  // Jalankan fetch sensor setiap 2 detik (sama seperti dashboard)
+  useEffect(() => {
+    fetchWaterSensor();
+    const interval = setInterval(fetchWaterSensor, 2000);
+    return () => clearInterval(interval);
+  }, [fetchWaterSensor]);
+
+  // Fungsi untuk menentukan SIAGA level berdasarkan water level (pakai threshold terbaru)
+  const getSiagaLevelFromThreshold = (waterLevel: number) => {
+    if (waterLevel >= thresholds.siaga1.water) return { level: "SIAGA 1", status: "Bahaya" };
+    if (waterLevel >= thresholds.siaga2.water) return { level: "SIAGA 2", status: "Waspada" };
+    return { level: "SIAGA 3", status: "Normal" };
+  };
+
+  // --- Timer refresh CCTV (5 menit) ---
   useEffect(() => {
     const lastRefresh = localStorage.getItem("last_cctv_refresh_camera");
     const now = Date.now();
@@ -65,12 +139,104 @@ export default function CameraPage() {
     setLastUpdate(new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }));
   }, [refreshKey]);
 
+  // Fungsi refresh kamera (manual & auto)
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
     localStorage.setItem("last_cctv_refresh_camera", Date.now().toString());
     setCountdown(300);
+    // Simpan water level dari sensor ke history
+    saveCurrentWaterLevelToHistory();
   };
 
+  // Simpan water level dari sensor WATER-01 ke localStorage (history kamera)
+  const saveCurrentWaterLevelToHistory = () => {
+    // Gunakan nilai sensor WATER-01 yang terbaru
+    const detectedWaterLevel = waterSensorValue !== null ? waterSensorValue : 0;
+    
+    // Tentukan SIAGA level berdasarkan threshold yang sudah di-fetch
+    const { level: siagaLevel, status: statusText } = getSiagaLevelFromThreshold(detectedWaterLevel);
+
+    const newLog = {
+      timestamp: new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+      water_level: detectedWaterLevel,
+      siaga_level: siagaLevel,
+      status: statusText,
+    };
+
+    // Ambil history lama dari localStorage
+    const existing = localStorage.getItem("camera_water_history");
+    let history = existing ? JSON.parse(existing) : [];
+    // Tambahkan di awal (terbaru di atas)
+    history.unshift(newLog);
+    // Batasi maksimal 50 data
+    if (history.length > 50) history = history.slice(0, 50);
+    localStorage.setItem("camera_water_history", JSON.stringify(history));
+    
+    // Update state tabel
+    setWaterLogs(history);
+    setLastLogRefresh(new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }));
+  };
+
+  // Ambil riwayat dari localStorage (history kamera)
+  const fetchWaterLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const existing = localStorage.getItem("camera_water_history");
+      if (existing) {
+        const history = JSON.parse(existing);
+        setWaterLogs(history);
+      } else {
+        // Data dummy awal jika belum ada history
+        const dummyWaterLevel = waterSensorValue !== null ? waterSensorValue : 75;
+        const { level: siagaLevel, status: statusText } = getSiagaLevelFromThreshold(dummyWaterLevel);
+        const dummyHistory = [
+          { timestamp: new Date().toLocaleString(), water_level: dummyWaterLevel, siaga_level: siagaLevel, status: statusText },
+        ];
+        setWaterLogs(dummyHistory);
+        localStorage.setItem("camera_water_history", JSON.stringify(dummyHistory));
+      }
+      setLastLogRefresh(new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }));
+    } catch (err) {
+      console.error("Gagal membaca history kamera:", err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  // Auto refresh history setiap 5 menit (sama dengan refresh kamera)
+  useEffect(() => {
+    fetchWaterLogs();
+    const interval = setInterval(fetchWaterLogs, 300000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRefreshLogs = () => {
+    fetchWaterLogs();
+  };
+
+  // Export ke CSV
+  const exportToCSV = () => {
+    if (waterLogs.length === 0) return;
+    const headers = ["Waktu", "Tinggi Air (cm)", "Status SIAGA", "Keterangan"];
+    const rows = waterLogs.map(log => [
+      log.timestamp,
+      log.water_level,
+      log.siaga_level,
+      log.status === "Bahaya" ? "Evakuasi segera" : log.status === "Waspada" ? "Siaga penuh" : "Normal & aman"
+    ]);
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.setAttribute("download", `camera_water_history_${new Date().toISOString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Data bounding box (tetap)
   const boundingBoxes = [
     { label: "Plastic Waste", confidence: 96, x: 25, y: 50, width: 10, height: 15, color: "#ef4444" },
     { label: "Wood/Debris", confidence: 84, x: 60, y: 70, width: 20, height: 12, color: "#f97316" },
@@ -85,47 +251,10 @@ export default function CameraPage() {
     totalObjects: 18,
   };
 
-  // 🔥 DATA MOCK UNTUK HISTORY 24 JAM
-  const waterHistoryData = [
-    { time: "16:00 (-24h)", level: 60, status: "Stabil" },
-    { time: "20:00", level: 62, status: "Stabil" },
-    { time: "00:00", level: 68, status: "Naik" },
-    { time: "04:00", level: 85, status: "Naik Tajam" },
-    { time: "08:00", level: 80, status: "Turun" },
-    { time: "12:00", level: 75, status: "Turun" },
-    { time: "16:00 (Now)", level: 75, status: "Stabil" },
-  ];
-
-  // Custom Tooltip untuk Recharts
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg shadow-xl text-white">
-          <p className="text-sm font-semibold mb-1 text-blue-400">{label}</p>
-          <p className="text-sm">Tinggi Air: <span className="font-bold">{data.level} cm</span></p>
-          <div className="flex items-center gap-1 mt-1 text-xs">
-            Status: 
-            <span className={`font-bold flex items-center gap-1 ${
-              data.status.includes("Naik") ? "text-red-400" : 
-              data.status.includes("Turun") ? "text-green-400" : "text-yellow-400"
-            }`}>
-              {data.status.includes("Naik") && <TrendingUp className="size-3" />}
-              {data.status.includes("Turun") && <TrendingDown className="size-3" />}
-              {data.status.includes("Stabil") && <Minus className="size-3" />}
-              {data.status}
-            </span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <Layout>
       <div className="max-w-7xl mx-auto space-y-6 p-4">
-        {/* Header Section */}
+        {/* Header Section - unchanged */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -183,60 +312,111 @@ export default function CameraPage() {
           </div>
         </div>
 
-        {/* 🔥 NEW: 24-HOUR HISTORY TREND SECTION */}
-        <Card className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white text-lg flex items-center gap-2">
-                <TrendingUp className="text-blue-600 size-5" />
-                24-Hour Water Level Trend
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Visualisasi fluktuasi tinggi air berdasarkan pantauan kamera dalam 24 jam terakhir.
-              </p>
-            </div>
-            {/* Status Indicator Current */}
-            <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800 text-right">
-              <p className="text-xs text-gray-500 uppercase font-bold mb-1">Status Saat Ini</p>
-              <div className="flex items-center justify-end gap-2 text-blue-600 dark:text-blue-400 font-bold">
-                <Minus className="size-4" /> Stabil (75cm)
+        {/* Tabel Riwayat Air dari Kamera (threshold sinkron dengan dashboard, data dari sensor WATER-01) */}
+        <Card className="overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900">
+          <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-gray-50/50 to-white dark:from-gray-800/50 dark:to-gray-900">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-200 dark:shadow-blue-900/40">
+                  <Database className="size-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight">Riwayat Tinggi Air (Deteksi Kamera)</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Data history dari sensor WATER-01 – threshold sinkron dengan dashboard</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {lastLogRefresh && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 rounded-full">
+                    <CheckCircle2 className="size-3.5 flex-shrink-0" />
+                    <span>Terakhir: {lastLogRefresh}</span>
+                  </div>
+                )}
+                <Button
+                  onClick={handleRefreshLogs}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-gray-300 dark:border-gray-700"
+                  disabled={loadingLogs}
+                >
+                  <RefreshCw className={`size-3.5 ${loadingLogs ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <Button
+                  onClick={exportToCSV}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-gray-300 dark:border-gray-700"
+                  disabled={waterLogs.length === 0}
+                >
+                  <Download className="size-3.5" />
+                  <span className="hidden sm:inline">Export CSV</span>
+                </Button>
               </div>
             </div>
           </div>
-          
-          <div className="w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={waterHistoryData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" vertical={false} />
-                <XAxis 
-                  dataKey="time" 
-                  className="text-xs font-medium text-gray-500" 
-                  tick={{ fill: '#6b7280' }} 
-                  axisLine={false} 
-                  tickLine={false} 
-                  dy={10}
-                />
-                <YAxis 
-                  className="text-xs font-medium text-gray-500" 
-                  tick={{ fill: '#6b7280' }} 
-                  axisLine={false} 
-                  tickLine={false}
-                  dx={-10}
-                  domain={['dataMin - 10', 'dataMax + 10']}
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                <Line 
-                  type="monotone" 
-                  dataKey="level" 
-                  stroke="#3b82f6" 
-                  strokeWidth={3} 
-                  dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }} 
-                  activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff' }}
-                  animationDuration={1500}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
+              <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 font-semibold">Waktu</th>
+                  <th scope="col" className="px-6 py-3 font-semibold">Tinggi Air (cm)</th>
+                  <th scope="col" className="px-6 py-3 font-semibold">Status SIAGA</th>
+                  <th scope="col" className="px-6 py-3 font-semibold">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingLogs && waterLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
+                      <div className="flex justify-center items-center gap-2">
+                        <RefreshCw className="size-4 animate-spin" />
+                        Memuat data history kamera...
+                      </div>
+                    </td>
+                  </tr>
+                ) : waterLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-400">
+                      Belum ada data history dari kamera. Refresh kamera untuk menyimpan data pertama.
+                    </td>
+                  </tr>
+                ) : (
+                  waterLogs.map((log, idx) => {
+                    let badgeClass = "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+                    let siagaText = log.siaga_level || "SIAGA 3";
+                    if (siagaText.includes("1")) badgeClass = "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+                    else if (siagaText.includes("2")) badgeClass = "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+                    
+                    let statusText = "✅ Normal & aman";
+                    if (log.status === "Bahaya") statusText = "⚠️ Evakuasi segera";
+                    else if (log.status === "Waspada") statusText = "⚡ Siaga penuh";
+                    
+                    return (
+                      <tr key={idx} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        <td className="px-6 py-3 font-mono text-xs">{log.timestamp}</td>
+                        <td className="px-6 py-3 font-bold text-gray-900 dark:text-white">
+                          {log.water_level} cm
+                        </td>
+                        <td className="px-6 py-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
+                            {siagaText}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 text-gray-500 dark:text-gray-400">{statusText}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
+          {!loadingLogs && waterLogs.length > 0 && (
+            <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400 text-right">
+              Menampilkan {waterLogs.length} riwayat dari kamera
+            </div>
+          )}
         </Card>
 
         <footer className="text-center py-4 text-xs text-gray-400 font-medium">

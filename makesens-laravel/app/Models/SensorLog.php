@@ -11,7 +11,15 @@ class SensorLog extends Model
     protected $fillable = [
         'sensor_code',
         'value',
-        'status'
+        'status',
+        'siaga_level',
+        'weather_data',
+        'region_name',
+        'batch_id',
+    ];
+
+    protected $casts = [
+        'weather_data' => 'array',
     ];
 
     // Enable timestamps

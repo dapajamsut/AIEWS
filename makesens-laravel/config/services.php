@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'openweather' => [
+        'api_key' => env('OPENWEATHER_API_KEY'),
+        'lat' => env('OPENWEATHER_LAT', -6.2088), // Jakarta latitude
+        'lon' => env('OPENWEATHER_LON', 106.8456), // Jakarta longitude
+    ],
+
 ];

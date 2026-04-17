@@ -2,24 +2,11 @@
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Cross-Origin Resource Sharing (CORS) Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-    |
-    */
-
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'login', 'logout'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],   // Mengizinkan semua origin, cocok untuk development
+    'allowed_origins' => ['*'], // Aman karena tidak pakai credentials/cookie
 
     'allowed_origins_patterns' => [],
 
@@ -29,6 +16,5 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true, // Wajib true karena menggunakan cookie
-
+    'supports_credentials' => false, // Token-based tidak butuh cookie
 ];

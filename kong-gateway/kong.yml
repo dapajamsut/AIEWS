@@ -2,7 +2,7 @@ _format_version: "3.0"
 
 services:
   - name: laravel-api
-    url: http://10.60.195.147:8002
+    url: http://10.52.208.147:8002
 
     routes:
       # 🔐 POST SENSOR (PAKAI API KEY)

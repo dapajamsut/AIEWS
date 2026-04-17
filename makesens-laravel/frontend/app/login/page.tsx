@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const BACKEND_URL = "http://localhost:8000";
+  const BACKEND_URL = "http://localhost:8002";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,10 +22,12 @@ export default function LoginPage() {
       const response = await axios.post(
         `${BACKEND_URL}/api/login`,
         { email, password },
-        { withCredentials: true, headers: { Accept: "application/json", "Content-Type": "application/json" } }
+        { headers: { Accept: "application/json", "Content-Type": "application/json" } }
       );
       if (response.status === 200) {
-        alert("Login Berhasil!");
+        // Simpan token & user ke localStorage
+        localStorage.setItem("auth_token", response.data.token);
+        localStorage.setItem("auth_user", JSON.stringify(response.data.user));
         window.location.href = "/";
       }
     } catch (error: any) {
