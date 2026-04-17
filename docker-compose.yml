@@ -8,7 +8,7 @@ services:
       - ./backend:/var/www
     working_dir: /var/www
     ports:
-      - "8001:8000"   # internal access (optional)
+      - "8001:8000"
     depends_on:
       - db
     env_file:
@@ -33,8 +33,8 @@ services:
     volumes:
       - ./kong-gateway/kong.yml:/kong/declarative/kong.yml
     ports:
-      - "8080:8000"   # public API
-      - "8001:8001"   # admin API
+      - "8080:8000"
+      - "8001:8001"
     depends_on:
       - backend
     restart: unless-stopped
@@ -53,16 +53,16 @@ services:
       - "5432:5432"
     restart: unless-stopped
 
- # mediamtx:
-  #  image: bluenviron/mediamtx
-   # container_name: mediamtx
-    #volumes:
-     # - ./mediamtx.yml:/mediamtx.yml
-   # ports:
-    #  - "8554:8554"
-     # - "8888:8888"
-      #- "8889:8889"
-   # restart: unless-stopped
+  # mediamtx:
+  #   image: bluenviron/mediamtx
+  #   container_name: mediamtx
+  #   volumes:
+  #     - ./mediamtx.yml:/mediamtx.yml
+  #   ports:
+  #     - "8554:8554"
+  #     - "8888:8888"
+  #     - "8889:8889"
+  #   restart: unless-stopped
 
 volumes:
   db_data:
