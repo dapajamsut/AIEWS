@@ -2,16 +2,17 @@ version: '3.8'
 
 services:
   backend:
-    build: .
+    build: ./backend
     container_name: laravel_app
+    volumes:
+      - ./backend:/var/www
+    working_dir: /var/www
     ports:
-      - "8000:8000"
+      - "8001:8000"   # internal access (optional)
     depends_on:
       - db
     env_file:
-      - .env
-    volumes:
-      - ./:/app   # 🔥 biar .env sync & code update realtime
+      - ./backend/.env
     restart: unless-stopped
 
   frontend:
@@ -19,16 +20,24 @@ services:
     container_name: next_app
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
     restart: unless-stopped
 
-  mediamtx:
-    image: bluenviron/mediamtx
+  kong:
+    image: kong:latest
+    container_name: kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
     volumes:
-      - ./mediamtx.yml:/mediamtx.yml
+      - ./kong-gateway/kong.yml:/kong/declarative/kong.yml
     ports:
-      - "8554:8554"
-      - "8888:8888"
-      - "8889:8889"
+      - "8080:8000"   # public API
+      - "8001:8001"   # admin API
+    depends_on:
+      - backend
+    restart: unless-stopped
 
   db:
     image: postgres:15
@@ -39,21 +48,21 @@ services:
       POSTGRES_DB: ews_db
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./database/dump:/docker-entrypoint-initdb.d
+      - ./backend/database/dump:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
     restart: unless-stopped
 
-  kong:
-    image: kong:latest
-    container_name: kong
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
-    volumes:
-      - ./kong.yml:/kong/kong.yml
-    ports:
-      - "8080:8000"   # public access
-      - "8001:8001"   # admin API
-    restart: unless-stopped
+ # mediamtx:
+  #  image: bluenviron/mediamtx
+   # container_name: mediamtx
+    #volumes:
+     # - ./mediamtx.yml:/mediamtx.yml
+   # ports:
+    #  - "8554:8554"
+     # - "8888:8888"
+      #- "8889:8889"
+   # restart: unless-stopped
 
 volumes:
   db_data:
