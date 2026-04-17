@@ -1,29 +1,32 @@
+// frontend/app/components/layout/Layout.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes"; // 1. Import useTheme
+import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
+import axios from "axios";
 import { 
   LayoutDashboard, 
   Radio, 
   Video, 
-  CloudSun, 
+  Brain, 
   Droplets, 
   Menu, 
   X, 
   LogOut,
   Sun,
-  Moon
+  Moon,
+  Settings
 } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [mounted, setMounted] = useState(false); // Buat nanganin hidrasi Next.js
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
 
-  // Mencegah error hidrasi (window is not defined)
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -32,16 +35,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { path: "/", label: "Dashboard", icon: LayoutDashboard },
     { path: "/sensors", label: "Sensor", icon: Radio },
     { path: "/camera", label: "Camera", icon: Video },
-    { path: "/weather-ai", label: "Weather AI", icon: CloudSun },
+    { path: "/ai-prediction", label: "AI Prediction", icon: Brain },
+    { path: "/threshold", label: "Threshold", icon: Settings },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(
+        "http://localhost:8002/api/logout",
+        {},
+        { withCredentials: true }
+      );
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      router.push("/login");
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
       {/* Sidebar Navigation */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r dark:border-gray-800 transition-transform duration-300 md:relative md:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex flex-col h-full p-6">
-          
-          {/* Logo MakeSens */}
+          {/* Logo */}
           <div className="flex items-center gap-3 mb-10">
             <div className="p-2 bg-blue-600 rounded-lg shadow-blue-200 dark:shadow-blue-900 shadow-lg">
               <Droplets className="text-white size-6" />
@@ -52,7 +69,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {/* Navigasi Menu */}
           <nav className="flex-1 space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -74,9 +90,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          {/* Bagian Bawah: Theme Toggle & Logout */}
           <div className="mt-auto space-y-4">
-            {/* TOMBOL DARK MODE (Ditambahin disini Biel) */}
+            {/* Dark mode toggle */}
             {mounted && (
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -103,7 +118,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-[10px] text-blue-400 dark:text-blue-500 mt-1">Version 1.0.0</p>
             </div>
             
-            <button className="flex items-center gap-3 px-4 py-2 w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors font-medium text-sm">
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-3 px-4 py-2 w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors font-medium text-sm"
+            >
               <LogOut className="size-4" />
               <span>Keluar</span>
             </button>
@@ -125,7 +143,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Content Area */}
-        <main className="p-6 md:p-10 bg-gray-50 dark:bg-gray-950">
+        <main className="flex-1 overflow-auto">
           {children}
         </main>
       </div>

@@ -3,7 +3,7 @@ import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Progress } from "./ui/progress";
 
-interface SensorCardProps {
+export interface SensorCardProps {
   id: string;
   location: string;
   value: number;
@@ -11,9 +11,10 @@ interface SensorCardProps {
   status: "alert" | "warning" | "normal";
   trend: "rising" | "falling" | "steady";
   target: number;
+  icon?: React.ReactNode; // ⬅️ ikon opsional
 }
 
-export function SensorCard({ id, location, value, unit, status, trend, target }: SensorCardProps) {
+export function SensorCard({ id, location, value, unit, status, trend, target, icon }: SensorCardProps) {
   const statusConfig = {
     alert: { label: "ALERT", color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-900" },
     warning: { label: "WARNING", color: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:border-orange-900" },
@@ -32,13 +33,16 @@ export function SensorCard({ id, location, value, unit, status, trend, target }:
   return (
     <Card className="p-5 hover:shadow-lg transition-shadow bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
       <div className="space-y-4">
-        {/* Header */}
+        {/* Header dengan ikon */}
         <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-              {id}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{location}</p>
+          <div className="flex items-center gap-2">
+            {icon && <div className="p-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg">{icon}</div>}
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                {id}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">{location}</p>
+            </div>
           </div>
           <Badge className={`${statusConfig[status].color} border font-semibold text-xs px-2.5 py-0.5`}>
             {statusConfig[status].label}

@@ -1,3 +1,5 @@
+"use client";
+
 import { AlertTriangle, Info, TrendingUp, Download } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
@@ -12,9 +14,10 @@ interface LogEntry {
 
 interface AlertLogsProps {
   logs: LogEntry[];
+  onExport?: () => void; // Tambahin ini biar bisa nerima fungsi dari luar
 }
 
-export function AlertLogs({ logs }: AlertLogsProps) {
+export function AlertLogs({ logs, onExport }: AlertLogsProps) {
   const getLogIcon = (type: string) => {
     switch (type) {
       case "critical":
@@ -39,12 +42,8 @@ export function AlertLogs({ logs }: AlertLogsProps) {
 
   return (
     <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
         <h3 className="font-semibold text-gray-900 dark:text-white">System Logs & Alerts</h3>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Download className="size-4" />
-          Export CSV
-        </Button>
       </div>
       
       <ScrollArea className="h-[300px]">
