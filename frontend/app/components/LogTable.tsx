@@ -115,7 +115,7 @@ export function LogTable({ loggingInterval = 0, refreshTrigger = 0 }: LogTablePr
   // ── Fetch daftar ekspor harian ──
   const fetchExports = useCallback(async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/logs/exports", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/logs/exports`, {
         headers: { apikey: "pikel2" }
       });
       if (res.ok) setExports(await res.json());

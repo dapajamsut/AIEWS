@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const BACKEND_URL = "http://localhost:8002";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

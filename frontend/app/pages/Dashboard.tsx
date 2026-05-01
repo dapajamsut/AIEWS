@@ -156,7 +156,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("http://localhost:8002/api/sensors/latest", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/sensors/latest`, {
           cache: "no-store",
           headers: {
             apikey: "pikel2"
@@ -213,7 +213,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchThresholds = async () => {
       try {
-        const res = await fetch("http://localhost:8002/api/thresholds?type=siaga", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/thresholds?type=siaga`, {
           cache: "no-store",
           headers: { apikey: "pikel2" }
         });
@@ -300,7 +300,7 @@ export default function Dashboard() {
         const lon = activeRegionData.lon || 106.8229;
         const regionId = activeRegionData.id || selectedRegion;
 
-        const res = await fetch(`http://localhost:8002/api/weather?region=${regionId}&lat=${lat}&lon=${lon}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/weather?region=${regionId}&lat=${lat}&lon=${lon}`, {
           cache: "no-store",
           headers: { apikey: "pikel2" }
         });
@@ -336,7 +336,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch("http://localhost:8002/api/logs/settings", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/logs/settings`, {
           headers: { apikey: "pikel2" }
         });
         if (!res.ok) { console.error(`API Error: ${res.status} ${res.statusText}`); return; }
@@ -371,7 +371,7 @@ export default function Dashboard() {
 
   const updateLoggingSettings = async (enabled: boolean, interval: number) => {
     try {
-      const res = await fetch("http://localhost:8002/api/logs/settings", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/logs/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: "pikel2" },
         body: JSON.stringify({ enabled, interval })
@@ -400,7 +400,7 @@ export default function Dashboard() {
     try {
       const regionName = (() => { try { return JSON.parse(localStorage.getItem('selectedRegionData') || '{}')?.name || null; } catch { return null; } })();
       const { currentWeather: cw, siagaLevel: sl, weatherCondition: wc } = logDataRef.current;
-      const res = await fetch("http://localhost:8002/api/logs/save-now", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/logs/save-now`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: "pikel2" },
         body: JSON.stringify({
@@ -460,7 +460,7 @@ export default function Dashboard() {
       if (!currentWeather) return;
       try {
         const regionName = (() => { try { return JSON.parse(localStorage.getItem('selectedRegionData') || '{}')?.name || null; } catch { return null; } })();
-        await fetch("http://localhost:8002/api/weather-cache", {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/weather-cache`, {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: "pikel2" },
           body: JSON.stringify({

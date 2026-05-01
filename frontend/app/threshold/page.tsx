@@ -50,7 +50,7 @@ export default function ThresholdPage() {
   const fetchThresholds = useCallback(async () => {
     setIsFetching(true);
     try {
-      const res = await fetch("http://localhost:8002/api/thresholds?type=siaga", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/thresholds?type=siaga`, {
         cache: "no-store",
         headers: { apikey: "pikel2" },
       });
@@ -143,7 +143,7 @@ export default function ThresholdPage() {
       // Save siaga1, siaga2, siaga3 in parallel
       const saves = ([1, 2, 3] as const).map((level) => {
         const levelKey = `siaga${level}` as "siaga1" | "siaga2" | "siaga3";
-        return fetch("http://localhost:8002/api/thresholds", {
+        return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/thresholds`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

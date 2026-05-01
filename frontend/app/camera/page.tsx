@@ -43,7 +43,7 @@ export default function CameraPage() {
   // 🔥 Ambil threshold dari API (sama dengan dashboard)
   const fetchThresholds = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:8002/api/thresholds?type=siaga", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/thresholds?type=siaga`, {
         cache: "no-store",
         headers: { apikey: "pikel2" },
       });
@@ -74,7 +74,7 @@ export default function CameraPage() {
   const fetchWaterSensor = useCallback(async () => {
     try {
       setSensorLoading(true);
-      const res = await fetch("http://localhost:8002/api/sensors/latest", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/sensors/latest`, {
         cache: "no-store",
         headers: { apikey: "pikel2" },
       });

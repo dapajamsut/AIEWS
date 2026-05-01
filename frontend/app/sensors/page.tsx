@@ -418,7 +418,7 @@ export default function SensorPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch("http://localhost:8002/api/sensors/latest", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/sensors/latest`, {
           cache: "no-store",
           headers: { apikey: "pikel2" },
           signal: AbortSignal.timeout(5000),
@@ -462,7 +462,7 @@ export default function SensorPage() {
   useEffect(() => {
     const fetchThresholds = async () => {
       try {
-        const res = await fetch("http://localhost:8002/api/thresholds?type=siaga", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002"}/api/thresholds?type=siaga`, {
           cache: "no-store", headers: { apikey: "pikel2" },
         });
         if (!res.ok) return;

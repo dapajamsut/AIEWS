@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Dashboard from "@/app/pages/Dashboard";
 import Layout from "@/app/components/layout/Layout";
 
-const BACKEND_URL = "http://localhost:8002";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002";
 
 export default function Home() {
     const [user, setUser] = useState<any>(null);
