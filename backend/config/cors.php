@@ -7,8 +7,8 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'http://makesens.my.id',
-        'http://www.makesens.my.id',
+        'https://makesens.my.id',
+        'https://www.makesens.my.id',
         'http://localhost:3000',
         'http://127.0.0.1:3000',
     ],
