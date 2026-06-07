@@ -18,6 +18,12 @@ class Kernel extends ConsoleKernel
 
         // Export harian + hapus log, tepat tengah malam (WIB)
         $schedule->command('log:daily-export')->dailyAt('00:00')->timezone('Asia/Jakarta');
+
+        // [PERAWATAN DATABASE] Membersihkan token API Sanctum yang sudah expired (umur > 24 jam)
+        $schedule->command('sanctum:prune-expired --hours=24')->dailyAt('01:00');
+        
+        // [PERAWATAN DATABASE] Membersihkan token reset password yang usang
+        $schedule->command('auth:clear-resets')->dailyAt('01:30');
     }
 
     /**

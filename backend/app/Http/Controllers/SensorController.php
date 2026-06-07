@@ -10,49 +10,8 @@ use Illuminate\Support\Facades\Cache;
 
 class SensorController extends Controller
 {
-    public function store(Request $request)
-{
-    try {
+    // public function store() telah dihapus. Data sensor menerima data murni via MQTT.
 
-        $results = [];
-
-        foreach ($request->all() as $sensor) {
-
-            // 🔒 VALIDASI BIAR GAK CRASH
-            if (!isset($sensor['sensor_code'], $sensor['type'], $sensor['value'], $sensor['unit'])) {
-                return response()->json([
-                    'error' => 'Format data salah',
-                    'data' => $sensor
-                ], 400);
-            }
-
-            $status = $this->getStatus($sensor['type'], $sensor['value']);
-
-            // ✅ SIMPAN KE sensors (data terbaru)
-            $results[] = Sensor::create([
-                'sensor_code' => $sensor['sensor_code'],
-                'type' => $sensor['type'],
-                'value' => $sensor['value'],
-                'unit' => $sensor['unit'],
-                'status' => $status
-            ]);
-
-            // ✅ Data log hanya disimpan oleh scheduler (SaveSensorLogCommand)
-            //    atau tombol "Simpan Sekarang" (saveLogsNow), BUKAN di sini.
-            //    Ini mencegah log penuh dengan data per-detik/milidetik dari hardware.
-        }
-
-        return response()->json([
-            'success' => true
-        ]);
-
-    } catch (\Exception $e) {
-
-        return response()->json([
-            'error' => $e->getMessage()
-        ], 500);
-    }
-}
     public function latest()
     {
         return Sensor::select('sensor_code', 'type', 'value', 'unit', 'status', 'created_at')
@@ -246,28 +205,28 @@ class SensorController extends Controller
 
         return [
             'siaga1' => [
-                'wind' => 20,
-                'rain' => 100,
-                'water' => $threshold->getAttribute('water_siaga1') ?? $threshold->getAttribute('siaga1') ?? 400,
-                'temp' => 40,
-                'humidity' => 95,
-                'pressure' => 1030,
+                'wind' => $threshold->wind_siaga1,
+                'rain' => $threshold->rain_siaga1,
+                'water' => $threshold->water_siaga1,
+                'temp' => $threshold->temp_siaga1,
+                'humidity' => $threshold->humidity_siaga1,
+                'pressure' => $threshold->pressure_siaga1,
             ],
             'siaga2' => [
-                'wind' => 15,
-                'rain' => 70,
-                'water' => $threshold->getAttribute('water_siaga2') ?? $threshold->getAttribute('siaga2') ?? 300,
-                'temp' => 35,
-                'humidity' => 85,
-                'pressure' => 1010,
+                'wind' => $threshold->wind_siaga2,
+                'rain' => $threshold->rain_siaga2,
+                'water' => $threshold->water_siaga2,
+                'temp' => $threshold->temp_siaga2,
+                'humidity' => $threshold->humidity_siaga2,
+                'pressure' => $threshold->pressure_siaga2,
             ],
             'siaga3' => [
-                'wind' => 10,
-                'rain' => 30,
-                'water' => $threshold->getAttribute('water_siaga3') ?? $threshold->getAttribute('siaga3') ?? 150,
-                'temp' => 30,
-                'humidity' => 70,
-                'pressure' => 1000,
+                'wind' => $threshold->wind_siaga3,
+                'rain' => $threshold->rain_siaga3,
+                'water' => $threshold->water_siaga3,
+                'temp' => $threshold->temp_siaga3,
+                'humidity' => $threshold->humidity_siaga3,
+                'pressure' => $threshold->pressure_siaga3,
             ],
         ];
     }
@@ -289,25 +248,5 @@ class SensorController extends Controller
         return 'NORMAL';
     }
 
-    public function getSiagaStatus()
-    {
-        // Ambil data terbaru tinggi air dari sensor WATER-01
-        $waterSensor = Sensor::where('sensor_code', 'WATER-01')->latest()->first();
-        $value = $waterSensor ? (float) $waterSensor->value : 0;
-
-        $thresholds = $this->getThresholds();
-
-        // Siaga 1 = Paling Bahaya
-        if ($value >= ($thresholds['siaga1']['water'] ?? 400)) {
-            return response('1', 200)->header('Content-Type', 'text/plain');
-        }
-
-        // Siaga 2 = Waspada Tinggi
-        if ($value >= ($thresholds['siaga2']['water'] ?? 300)) {
-            return response('2', 200)->header('Content-Type', 'text/plain');
-        }
-
-        // Siaga 3 = Normal / Aman
-        return response('3', 200)->header('Content-Type', 'text/plain');
-    }
+    // public function getSiagaStatus() telah dihapus karena digantikan oleh MQTT Publish.
 }

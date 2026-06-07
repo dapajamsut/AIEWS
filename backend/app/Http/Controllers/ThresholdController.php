@@ -51,6 +51,35 @@ class ThresholdController extends Controller
             // Reload fresh data from database to ensure consistency
             $threshold = Threshold::find($threshold->id);
 
+            // ✅ PUBLISH STATUS BARU VIA MQTT (LANGSUNG KE ESP32)
+            try {
+                // Ambil nilai sensor air paling terakhir
+                $waterSensor = \App\Models\Sensor::where('sensor_code', 'WATER-01')->latest()->first();
+                $actualWater = $waterSensor ? (float) $waterSensor->value : 0;
+                
+                $siagaStatus = '3'; // Default Normal
+                $batasSiaga1 = $threshold->getAttribute('water_siaga1') ?? $threshold->getAttribute('siaga1') ?? 400;
+                $batasSiaga2 = $threshold->getAttribute('water_siaga2') ?? $threshold->getAttribute('siaga2') ?? 300;
+
+                if ($actualWater >= $batasSiaga1) {
+                    $siagaStatus = '1';
+                } elseif ($actualWater >= $batasSiaga2) {
+                    $siagaStatus = '2';
+                }
+
+                $server   = env('MQTT_HOST', 'broker.hivemq.com');
+                $port     = env('MQTT_PORT', 1883);
+                $clientId = 'makesens_api_' . uniqid();
+                $topicOut = env('MQTT_TOPIC_SIAGA', 'makesens/test/tmj/siaga');
+                
+                $mqtt = new \PhpMqtt\Client\MqttClient($server, $port, $clientId);
+                $mqtt->connect(null, true);
+                $mqtt->publish($topicOut, $siagaStatus, 0, true);
+                $mqtt->disconnect();
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('MQTT Threshold Publish Error: ' . $e->getMessage());
+            }
+
         } elseif ($type === 'weather') {
             $request->validate([
                 'type' => 'required|string|in:siaga,weather',
@@ -77,6 +106,29 @@ class ThresholdController extends Controller
             ];
 
             $threshold->update($updateData);
+        } elseif ($type === 'physics') {
+            $request->validate([
+                'w' => 'required|numeric',
+                's' => 'required|numeric',
+                'n' => 'required|numeric',
+                'a_das' => 'required|numeric',
+                'c' => 'required|numeric',
+                'l_segment' => 'required|numeric',
+            ]);
+
+            $threshold = Threshold::first();
+            if (!$threshold) {
+                $threshold = Threshold::create($this->defaultThresholdRow());
+            }
+
+            $threshold->update([
+                'physics_w' => $request->input('w'),
+                'physics_s' => $request->input('s'),
+                'physics_n' => $request->input('n'),
+                'physics_a_das' => $request->input('a_das'),
+                'physics_c' => $request->input('c'),
+                'physics_l_segment' => $request->input('l_segment'),
+            ]);
         }
 
         return response()->json(['success' => true, 'data' => $this->formatThresholdResponse(Threshold::first(), $type)]);
@@ -97,6 +149,22 @@ class ThresholdController extends Controller
                 'water_siaga1' => 400,
                 'water_siaga2' => 300,
                 'water_siaga3' => 150,
+
+                'wind_siaga1' => 20,
+                'wind_siaga2' => 15,
+                'wind_siaga3' => 10,
+                'rain_siaga1' => 100,
+                'rain_siaga2' => 70,
+                'rain_siaga3' => 30,
+                'temp_siaga1' => 40,
+                'temp_siaga2' => 35,
+                'temp_siaga3' => 30,
+                'humidity_siaga1' => 95,
+                'humidity_siaga2' => 85,
+                'humidity_siaga3' => 70,
+                'pressure_siaga1' => 1030,
+                'pressure_siaga2' => 1010,
+                'pressure_siaga3' => 1000,
 
                 'wind_kering' => 5,
                 'rain_kering' => 0,
@@ -134,6 +202,52 @@ class ThresholdController extends Controller
             'siaga1' => 400,
             'siaga2' => 300,
             'siaga3' => 150,
+
+            'wind_siaga1' => 20,
+            'wind_siaga2' => 15,
+            'wind_siaga3' => 10,
+            'rain_siaga1' => 100,
+            'rain_siaga2' => 70,
+            'rain_siaga3' => 30,
+            'temp_siaga1' => 40,
+            'temp_siaga2' => 35,
+            'temp_siaga3' => 30,
+            'humidity_siaga1' => 95,
+            'humidity_siaga2' => 85,
+            'humidity_siaga3' => 70,
+            'pressure_siaga1' => 1030,
+            'pressure_siaga2' => 1010,
+            'pressure_siaga3' => 1000,
+
+            'wind_kering' => 5,
+            'rain_kering' => 0,
+            'temp_kering' => 35,
+            'humidity_kering' => 40,
+            'pressure_kering' => 1025,
+
+            'wind_normal' => 10,
+            'rain_normal' => 5,
+            'temp_normal' => 28,
+            'humidity_normal' => 65,
+            'pressure_normal' => 1015,
+
+            'wind_berangin' => 20,
+            'rain_berangin' => 10,
+            'temp_berangin' => 25,
+            'humidity_berangin' => 75,
+            'pressure_berangin' => 1005,
+
+            'wind_hujan' => 30,
+            'rain_hujan' => 50,
+            'temp_hujan' => 20,
+            'humidity_hujan' => 85,
+            'pressure_hujan' => 995,
+
+            'wind_hujan_deras' => 50,
+            'rain_hujan_deras' => 100,
+            'temp_hujan_deras' => 18,
+            'humidity_hujan_deras' => 95,
+            'pressure_hujan_deras' => 985,
         ];
     }
 
@@ -176,6 +290,17 @@ class ThresholdController extends Controller
                     'humidity' => $threshold->humidity_hujan_deras,
                     'pressure' => $threshold->pressure_hujan_deras,
                 ],
+            ];
+        }
+
+        if ($type === 'physics') {
+            return [
+                'w' => $threshold->physics_w ?? 15,
+                's' => $threshold->physics_s ?? 0.001,
+                'n' => $threshold->physics_n ?? 0.035,
+                'a_das' => $threshold->physics_a_das ?? 10000000,
+                'c' => $threshold->physics_c ?? 0.75,
+                'l_segment' => $threshold->physics_l_segment ?? 1000,
             ];
         }
 

@@ -31,9 +31,19 @@ class AuthenticatedSessionController extends Controller
             ], 200);
 
         } catch (ValidationException $e) {
+            $isLockedOut = false;
+            $seconds = 0;
+
+            if (\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($request->throttleKey(), 3)) {
+                $isLockedOut = true;
+                $seconds = \Illuminate\Support\Facades\RateLimiter::availableIn($request->throttleKey());
+            }
+
             return response()->json([
-                'message' => 'Login gagal. Email atau password salah.',
+                'message' => $e->validator->errors()->first() ?: 'Login gagal.',
                 'errors'  => $e->errors(),
+                'is_locked_out' => $isLockedOut,
+                'retry_after' => $seconds,
             ], 422);
         } catch (\Exception $e) {
             return response()->json([

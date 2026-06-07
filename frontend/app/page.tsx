@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Dashboard from "@/app/pages/Dashboard";
 import Layout from "@/app/components/layout/Layout";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002";
+const BACKEND_URL = "http://localhost:8000";
 
 export default function Home() {
     const [user, setUser] = useState<any>(null);
@@ -13,8 +13,22 @@ export default function Home() {
     useEffect(() => {
         const checkAuth = async () => {
             const token = localStorage.getItem("auth_token");
+            const loginTime = localStorage.getItem("login_time");
+            const sessionActive = document.cookie.includes("session_active=true");
 
-            if (!token) {
+            if (!token || !loginTime || !sessionActive) {
+                localStorage.removeItem("auth_token");
+                localStorage.removeItem("auth_user");
+                localStorage.removeItem("login_time");
+                window.location.href = "/login";
+                return;
+            }
+
+            // Check if 24 hours have passed (24 * 60 * 60 * 1000 = 86400000 ms)
+            if (Date.now() - parseInt(loginTime) > 86400000) {
+                localStorage.removeItem("auth_token");
+                localStorage.removeItem("auth_user");
+                localStorage.removeItem("login_time");
                 window.location.href = "/login";
                 return;
             }
@@ -28,7 +42,6 @@ export default function Home() {
                 });
 
                 if (!response.ok) {
-                    // Token expired / invalid
                     localStorage.removeItem("auth_token");
                     localStorage.removeItem("auth_user");
                     window.location.href = "/login";
@@ -60,6 +73,8 @@ export default function Home() {
         } catch { /* silent */ } finally {
             localStorage.removeItem("auth_token");
             localStorage.removeItem("auth_user");
+            localStorage.removeItem("login_time");
+            document.cookie = "session_active=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             window.location.href = "/login";
         }
     };
@@ -77,20 +92,6 @@ export default function Home() {
 
     return (
         <Layout>
-            {/* Header dengan logout */}
-            <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-                <span className="text-sm font-medium text-blue-700">
-                    Sistem Monitoring Aktif • User: <strong className="text-blue-900">{user?.name}</strong>
-                </span>
-                <button
-                    onClick={handleLogout}
-                    className="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-3 py-1 rounded-full transition-colors"
-                >
-                    Log Out
-                </button>
-            </div>
-
-            {/* Langsung render Dashboard */}
             <Dashboard />
         </Layout>
     );

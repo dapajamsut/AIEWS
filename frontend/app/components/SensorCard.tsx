@@ -63,9 +63,6 @@ export function SensorCard({ id, location, value, unit, status, trend, target, i
           <span className={`text-sm font-medium ${trendConfig[trend].color}`}>
             {trendConfig[trend].label}
           </span>
-          <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
-            Target: {target}{unit}
-          </span>
         </div>
 
         {/* Progress Bar */}

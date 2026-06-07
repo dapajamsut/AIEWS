@@ -1,23 +1,25 @@
 FROM php:8.2-cli
 
-WORKDIR /app
-
+# Install dependencies yang dibutuhkan Laravel & PostgreSQL & MQTT
 RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    unzip \
     git \
-    curl \
+    unzip \
+    libpq-dev \
     && docker-php-ext-install pdo pdo_pgsql
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Install Composer
+COPY --from=composer:2.6 /usr/bin/composer /usr/bin/composer
 
-# install dependency dulu (biar cache optimal)
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --prefer-dist
+WORKDIR /app
 
-# copy semua file project (TANPA .env ideally)
+# Copy seluruh file backend
 COPY . .
 
-EXPOSE 8000
+# Install PHP dependencies
+RUN composer install --no-interaction --optimize-autoloader
 
-CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000
+# Expose port yang dipakai Laravel
+EXPOSE 8002
+
+# Jalankan server bawaan artisan (untuk development AWS)
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8002"]

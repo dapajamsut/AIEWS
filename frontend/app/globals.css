@@ -24,9 +24,85 @@
   --text-color: #f8fafc;
 }
 
-/* 4. Body manggil variabel */
+/* 4. Body manggil variabel + FIX RESPONSIVE MOBILE */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--bg-color);
   color: var(--text-color);
   transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  width: 100%;
+}
+
+/* ===== TAMBAHAN MOBILE FIX (YANG SUDAH DIPERBAIKI) ===== */
+/* Box sizing aman untuk semua elemen */
+* {
+  box-sizing: border-box;
+}
+
+/* Force elemen layout utama agar tidak overflow horizontal, 
+   KECUALI elemen chart/canvas dan box deteksi kamera objek */
+div:not([class*="chart"]), 
+section, 
+main, 
+article {
+  max-width: 100%;
+}
+
+/* Atasi container utama yang mungkin kelebaran */
+.max-w-7xl {
+  max-width: 100% !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+  overflow-x: hidden !important;
+}
+
+/* Pastikan grid dan flex wrap dengan benar */
+.grid, .flex {
+  flex-wrap: wrap;
+}
+
+/* Untuk tabel/log table biar bisa di-scroll horizontal (tetap fungsional) */
+.overflow-x-auto {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Khusus untuk header / navbar yang mungkin terlalu lebar */
+header, nav, .bg-white, .dark\:bg-gray-800 {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Semua gambar dan iframe responsif */
+img, iframe, video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 🔥 FIX UTAMA: Proteksi Canvas Grafik & Bounding Box CCTV dari Max-Width */
+canvas, 
+.recharts-wrapper, 
+.recharts-surface,
+[class*="absolute"] {
+  max-width: none !important; 
+}
+
+/* Mencegah overflow container grafik */
+.recharts-responsive-container {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Perbaiki input number di HP (mencegah zoom otomatis iOS) */
+input[type="number"] {
+  font-size: 16px;
 }

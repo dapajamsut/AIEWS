@@ -2,17 +2,20 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# copy dependency dulu (biar cache optimal)
-COPY package*.json ./
+# Copy dependency files
+COPY package.json package-lock.json* ./
 
+# Install dependencies
 RUN npm install
 
-# copy semua file
+# Copy sisa file Next.js
 COPY . .
 
-# build production
+# Build aplikasi Next.js
 RUN npm run build
 
+# Expose port frontend
 EXPOSE 3000
 
+# Start frontend
 CMD ["npm", "start"]

@@ -41,4 +41,8 @@ return [
         'lon' => env('OPENWEATHER_LON', 106.8456), // Jakarta longitude
     ],
 
+    'fastapi' => [
+        'url' => env('FASTAPI_URL', 'http://192.168.0.100:8000'),
+    ],
+
 ];

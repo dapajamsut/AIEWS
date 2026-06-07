@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+// @ts-ignore
 import "./globals.css";
-// 1. IMPORT INI
-import { ThemeProvider } from "next-themes"; 
+import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,16 +15,21 @@ export const metadata: Metadata = {
   description: "Flood Monitoring System",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: true, // biarkan user bisa zoom jika perlu, tapi layout tetap menyesuaikan
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    // 2. TAMBAHIN suppressHydrationWarning DI SINI
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} antialiased`}>
-        {/* 3. BUNGKUS CHILDREN PAKE INI */}
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {children}
         </ThemeProvider>

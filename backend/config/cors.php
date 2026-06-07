@@ -6,12 +6,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'https://makesens.my.id',
-        'https://www.makesens.my.id',
-        'http://localhost:3000',
-        'http://127.0.0.1:3000',
-    ],
+    'allowed_origins' => ['*'], // Aman karena tidak pakai credentials/cookie
 
     'allowed_origins_patterns' => [],
 
@@ -21,5 +16,5 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true,
+    'supports_credentials' => false, // Token-based tidak butuh cookie
 ];

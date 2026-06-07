@@ -13,7 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->statefulApi(); // WAJIB buat Sanctum
-        
+
+        // Trust proxy headers (X-Forwarded-Proto, X-Forwarded-Host) saat
+        // Laravel diakses lewat tunnel seperti ngrok. Tanpa ini, signed URL
+        // akan invalid karena scheme/host yang dilihat Laravel berbeda
+        // dari APP_URL (proxy mengubah https → http internal).
+        $middleware->trustProxies(at: '*');
+
         $middleware->validateCsrfTokens(except: [
             'api/*',
             'login',

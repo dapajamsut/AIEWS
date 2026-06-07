@@ -2,7 +2,10 @@ _format_version: "3.0"
 
 services:
   - name: laravel-api
-    url: http://nginx:80
+    # Laravel jalan di host (php artisan serve --port=8002).
+    # Kong di kontainer akses host lewat host.docker.internal
+    # (sudah di-mapping via extra_hosts di docker-compose.yml).
+    url: http://host.docker.internal:8002
 
     routes:
       # 🔐 POST SENSOR (PAKAI API KEY)
@@ -29,6 +32,17 @@ services:
           - /api
         strip_path: false
 
+  - name: camera-service
+    url: http://cctv.makesens.my.id
+    routes:
+      # 📷 GET SNAPSHOT (PUBLIC)
+      - name: snapshot-public
+        paths:
+          - /snapshot
+        methods:
+          - GET
+        strip_path: false
+
 plugins:
   - name: response-transformer
     config:
@@ -40,6 +54,11 @@ plugins:
     config:
       minute: 120
       policy: local
+
+  - name: request-size-limiting
+    config:
+      allowed_payload_size: 10
+      size_unit: megabytes
 
 consumers:
   - username: raspi
