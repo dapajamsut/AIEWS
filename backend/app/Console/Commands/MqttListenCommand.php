@@ -239,7 +239,7 @@ class MqttListenCommand extends Command
             'siaga1' => [
                 'wind' => $threshold->wind_siaga1 ?? 20,
                 'rain' => $threshold->rain_siaga1 ?? 100,
-                'water' => $threshold->water_siaga1 ?? 400,
+                'water' => $threshold->water_siaga1 ?? $threshold->siaga1 ?? 400,
                 'temp' => $threshold->temp_siaga1 ?? 40,
                 'humidity' => $threshold->humidity_siaga1 ?? 95,
                 'pressure' => $threshold->pressure_siaga1 ?? 1030,
@@ -247,7 +247,7 @@ class MqttListenCommand extends Command
             'siaga2' => [
                 'wind' => $threshold->wind_siaga2 ?? 15,
                 'rain' => $threshold->rain_siaga2 ?? 70,
-                'water' => $threshold->water_siaga2 ?? 300,
+                'water' => $threshold->water_siaga2 ?? $threshold->siaga2 ?? 300,
                 'temp' => $threshold->temp_siaga2 ?? 35,
                 'humidity' => $threshold->humidity_siaga2 ?? 85,
                 'pressure' => $threshold->pressure_siaga2 ?? 1010,
@@ -255,7 +255,7 @@ class MqttListenCommand extends Command
             'siaga3' => [
                 'wind' => $threshold->wind_siaga3 ?? 10,
                 'rain' => $threshold->rain_siaga3 ?? 30,
-                'water' => $threshold->water_siaga3 ?? 150,
+                'water' => $threshold->water_siaga3 ?? $threshold->siaga3 ?? 150,
                 'temp' => $threshold->temp_siaga3 ?? 30,
                 'humidity' => $threshold->humidity_siaga3 ?? 70,
                 'pressure' => $threshold->pressure_siaga3 ?? 1000,

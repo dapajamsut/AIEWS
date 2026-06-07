@@ -34,22 +34,36 @@ class AiPredictionController extends Controller
         $siagaLevel = 3; // default: normal / aman
 
         if ($threshold) {
+            $waterSiaga1 = $threshold->water_siaga1 ?? $threshold->siaga1 ?? 400;
+            $rainSiaga1 = $threshold->rain_siaga1 ?? 100;
+            $windSiaga1 = $threshold->wind_siaga1 ?? 20;
+            $tempSiaga1 = $threshold->temp_siaga1 ?? 40;
+            $humiditySiaga1 = $threshold->humidity_siaga1 ?? 95;
+            $pressureSiaga1 = $threshold->pressure_siaga1 ?? 1030;
+
+            $waterSiaga2 = $threshold->water_siaga2 ?? $threshold->siaga2 ?? 300;
+            $rainSiaga2 = $threshold->rain_siaga2 ?? 70;
+            $windSiaga2 = $threshold->wind_siaga2 ?? 15;
+            $tempSiaga2 = $threshold->temp_siaga2 ?? 35;
+            $humiditySiaga2 = $threshold->humidity_siaga2 ?? 85;
+            $pressureSiaga2 = $threshold->pressure_siaga2 ?? 1010;
+
             if (
-                $water    >= $threshold->water_siaga1    ||
-                $rain     >= $threshold->rain_siaga1     ||
-                $wind     >= $threshold->wind_siaga1     ||
-                $temp     >= $threshold->temp_siaga1     ||
-                $humidity >= $threshold->humidity_siaga1 ||
-                $pressure >= $threshold->pressure_siaga1
+                $water    >= $waterSiaga1    ||
+                $rain     >= $rainSiaga1     ||
+                $wind     >= $windSiaga1     ||
+                $temp     >= $tempSiaga1     ||
+                $humidity >= $humiditySiaga1 ||
+                $pressure >= $pressureSiaga1
             ) {
                 $siagaLevel = 1;
             } elseif (
-                $water    >= $threshold->water_siaga2    ||
-                $rain     >= $threshold->rain_siaga2     ||
-                $wind     >= $threshold->wind_siaga2     ||
-                $temp     >= $threshold->temp_siaga2     ||
-                $humidity >= $threshold->humidity_siaga2 ||
-                $pressure >= $threshold->pressure_siaga2
+                $water    >= $waterSiaga2    ||
+                $rain     >= $rainSiaga2     ||
+                $wind     >= $windSiaga2     ||
+                $temp     >= $tempSiaga2     ||
+                $humidity >= $humiditySiaga2 ||
+                $pressure >= $pressureSiaga2
             ) {
                 $siagaLevel = 2;
             }
