@@ -5,6 +5,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\SensorController;
 use App\Http\Controllers\ThresholdController;
+use App\Http\Controllers\Citizen\CitizenAuthController;
+use App\Http\Controllers\Citizen\CitizenNotificationController;
+use App\Http\Controllers\Citizen\CitizenPasswordResetController;
 
 // Login
 Route::post('/login', [AuthenticatedSessionController::class, 'store']);
@@ -38,3 +41,23 @@ Route::get('/regions', [ThresholdController::class, 'getRegions']);
 
 // Khusus ESP32 / Hardware
 Route::get('/siaga/status', [SensorController::class, 'getSiagaStatus']);
+
+// Citizen Auth, Reset Password, and Notification Management
+Route::prefix('citizen')->group(function () {
+    Route::post('/register', [CitizenAuthController::class, 'register']);
+    Route::post('/verify-register', [CitizenAuthController::class, 'verifyRegistration']);
+    Route::post('/resend-register-otp', [CitizenAuthController::class, 'resendRegistrationOtp']);
+    Route::post('/login', [CitizenAuthController::class, 'login']);
+
+    Route::post('/forgot-password', [CitizenPasswordResetController::class, 'sendResetOtp']);
+    Route::post('/reset-password', [CitizenPasswordResetController::class, 'reset']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/me', [CitizenAuthController::class, 'me']);
+        Route::put('/profile', [CitizenAuthController::class, 'updateProfile']);
+        Route::post('/logout', [CitizenAuthController::class, 'logout']);
+
+        Route::get('/notifications', [CitizenNotificationController::class, 'index']);
+        Route::post('/notifications/clear', [CitizenNotificationController::class, 'clear']);
+    });
+});
