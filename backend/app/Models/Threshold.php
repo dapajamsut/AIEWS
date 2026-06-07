@@ -14,11 +14,6 @@ class Threshold extends Model
         'water_siaga1', 'water_siaga2', 'water_siaga3',
 
         // Weather Conditions
-        'wind_siaga1', 'wind_siaga2', 'wind_siaga3',
-        'rain_siaga1', 'rain_siaga2', 'rain_siaga3',
-        'temp_siaga1', 'temp_siaga2', 'temp_siaga3',
-        'humidity_siaga1', 'humidity_siaga2', 'humidity_siaga3',
-        'pressure_siaga1', 'pressure_siaga2', 'pressure_siaga3',
         'wind_kering', 'rain_kering', 'temp_kering', 'humidity_kering', 'pressure_kering',
         'wind_normal', 'rain_normal', 'temp_normal', 'humidity_normal', 'pressure_normal',
         'wind_berangin', 'rain_berangin', 'temp_berangin', 'humidity_berangin', 'pressure_berangin',
