@@ -76,7 +76,7 @@ class ThresholdController extends Controller
                 $mqtt->connect(null, true);
                 $mqtt->publish($topicOut, $siagaStatus, 0, true);
                 $mqtt->disconnect();
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error('MQTT Threshold Publish Error: ' . $e->getMessage());
             }
 
