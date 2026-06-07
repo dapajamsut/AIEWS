@@ -45,8 +45,8 @@ Route::get('/siaga/status', [SensorController::class, 'getSiagaStatus']);
 // Citizen Auth, Reset Password, and Notification Management
 Route::prefix('citizen')->group(function () {
     Route::post('/register', [CitizenAuthController::class, 'register']);
-    Route::post('/verify-register', [CitizenAuthController::class, 'verifyRegistration']);
-    Route::post('/resend-register-otp', [CitizenAuthController::class, 'resendRegistrationOtp']);
+    Route::post('/verify-registration', [CitizenAuthController::class, 'verifyRegistration']);
+    Route::post('/resend-registration-otp', [CitizenAuthController::class, 'resendRegistrationOtp']);
     Route::post('/login', [CitizenAuthController::class, 'login']);
 
     Route::post('/forgot-password', [CitizenPasswordResetController::class, 'sendResetOtp']);
