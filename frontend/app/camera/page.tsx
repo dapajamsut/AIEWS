@@ -89,7 +89,7 @@ export default function CameraPage() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/camera/snapshots/stats", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/camera/snapshots/stats`, {
           cache: "no-store",
           headers: { apikey: "pikel2" },
         });
@@ -132,7 +132,7 @@ export default function CameraPage() {
 
   const fetchThresholds = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/thresholds?type=siaga", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds?type=siaga`, {
         cache: "no-store",
         headers: { apikey: "pikel2" },
       });
@@ -159,7 +159,7 @@ export default function CameraPage() {
   const fetchWaterSensor = useCallback(async () => {
     try {
       setSensorLoading(true);
-      const res = await fetch("http://localhost:8000/api/sensors/latest", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/sensors/latest`, {
         cache: "no-store",
         headers: { apikey: "pikel2" },
       });
@@ -523,7 +523,7 @@ export default function CameraPage() {
         capture_mode:       mode,
       };
 
-      const res = await fetch("http://localhost:8000/api/camera/snapshots", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/camera/snapshots`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: "pikel2" },
         body: JSON.stringify(payload),

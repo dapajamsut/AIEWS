@@ -88,7 +88,7 @@ export default function LoginPage() {
   const [sendError, setSendError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const BACKEND_URL = "http://localhost:8000";
+  const BACKEND_URL = `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}`}`;
 
   // -------------------------------------------------------------------
   // LOGIN — pakai EMAIL (sesuai backend Laravel)

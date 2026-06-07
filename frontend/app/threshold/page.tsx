@@ -105,7 +105,7 @@ export default function ThresholdPage() {
 
         const res =
           await fetch(
-            "http://localhost:8000/api/thresholds?type=siaga",
+            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds?type=siaga`,
             {
               cache: "no-store",
               headers: {
@@ -144,7 +144,7 @@ export default function ThresholdPage() {
         // Physics
         const resPhysics =
           await fetch(
-            "http://localhost:8000/api/thresholds?type=physics",
+            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds?type=physics`,
             {
               cache: "no-store",
               headers: {
@@ -365,7 +365,7 @@ export default function ThresholdPage() {
                   | "siaga3";
 
               return fetch(
-                "http://localhost:8000/api/thresholds",
+                `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds`,
                 {
                   method: "POST",
 
@@ -393,7 +393,7 @@ export default function ThresholdPage() {
 
         const savePhysics =
           fetch(
-            "http://localhost:8000/api/thresholds",
+            `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds`,
             {
               method: "POST",
 

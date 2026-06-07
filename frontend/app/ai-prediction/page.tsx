@@ -241,7 +241,7 @@ export default function WeatherAIPage() {
     setAiLoading(true);
     setAiError(null);
     try {
-      const res = await fetch("http://localhost:8000/api/ai-prediction", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/ai-prediction`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -289,7 +289,7 @@ export default function WeatherAIPage() {
     const fetchAll = async () => {
       try {
         const resSensor = await fetch(
-          "http://localhost:8000/api/sensors/latest",
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/sensors/latest`,
           { headers: { apikey: "pikel2" }, cache: "no-store" }
         );
         if (resSensor.ok) {
@@ -298,7 +298,7 @@ export default function WeatherAIPage() {
         }
 
         const resThresh = await fetch(
-          "http://localhost:8000/api/thresholds?type=siaga",
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds?type=siaga`,
           { headers: { apikey: "pikel2" } }
         );
         if (resThresh.ok) {
@@ -311,7 +311,7 @@ export default function WeatherAIPage() {
         }
 
         const resPhysics = await fetch(
-          "http://localhost:8000/api/thresholds?type=physics",
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds?type=physics`,
           { headers: { apikey: "pikel2" } }
         );
         if (resPhysics.ok) {

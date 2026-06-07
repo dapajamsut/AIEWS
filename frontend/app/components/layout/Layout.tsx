@@ -73,7 +73,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
     // Refresh user dari server (kalau ada update name/email)
     axios
-      .get("http://localhost:8000/api/user", {
+      .get(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/user`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       })
       .then((res) => {
@@ -92,7 +92,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (!token) return;
     setProfileLoading(true);
     axios
-      .get("http://localhost:8000/api/user/profile", {
+      .get(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/user/profile`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       })
       .then((res) => setProfile(res.data))
@@ -111,7 +111,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       await axios.post(
-        "http://localhost:8000/api/logout",
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/logout`,
         {},
         { 
           headers: {

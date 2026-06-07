@@ -56,7 +56,7 @@ export default function CameraPage() {
   const [isSensorValid, setIsSensorValid] = useState<boolean>(true);
   const previousWaterValueRef = useRef<number | null>(null);
 
-  // const CCTV_IMAGE_URL = `http://localhost:8000/snapshot`;
+  // const CCTV_IMAGE_URL = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/snapshot`;
   const CCTV_IMAGE_URL = `http://cctv.makesens.my.id/snapshot`;
 
   // ── State Baru untuk Analisis Grafik Dual Line Per Jam ──
@@ -91,7 +91,7 @@ export default function CameraPage() {
   // 🔥 Ambil threshold dari API (sama dengan dashboard)
   const fetchThresholds = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/thresholds?type=siaga", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/thresholds?type=siaga`, {
         cache: "no-store",
         headers: { apikey: "pikel2" },
       });
@@ -122,7 +122,7 @@ export default function CameraPage() {
   const fetchWaterSensor = useCallback(async () => {
     try {
       setSensorLoading(true);
-      const res = await fetch("http://localhost:8000/api/sensors/latest", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/sensors/latest`, {
         cache: "no-store",
         headers: { apikey: "pikel2" },
       });
