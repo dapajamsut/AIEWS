@@ -99,10 +99,10 @@ a.letter:hover{text-decoration:underline}
 <!-- ===== APPROVE PANEL ===== -->
 <div class="panel {{ ($errors->has('rejection_reason') || old('action') === 'reject') ? '' : 'active' }}" id="panel-approve">
 <div class="note">
-<strong>Sebelum mengirim:</strong> buat dulu user di database via terminal:
-<code>php artisan app:create-user</code>
-lalu isi email + password yang sama persis di form ini. Sistem akan memverifikasi
-kecocokan kredensial sebelum mengirim email.
+<strong>Buat akun login:</strong> isi email & password yang diinginkan untuk pemohon.
+Akun akan <strong>dibuat otomatis</strong> di database saat Anda menekan tombol setujui,
+lalu kredensial ini langsung dikirim ke email pemohon. Jika email sudah terdaftar,
+password-nya akan diperbarui ke yang Anda isi.
 </div>
 <form method="POST" action="{{ url('/admin/access-requests/' . $req->id . '/approve') }}">
 @csrf
@@ -111,7 +111,7 @@ kecocokan kredensial sebelum mengirim email.
 <div>
 <label for="login_email">Email Login</label>
 <input type="email" id="login_email" name="login_email" value="{{ old('login_email', $req->email) }}" required>
-<div class="help">Email akun yang sudah dibuat di DB.</div>
+<div class="help">Email untuk akun login (akan dibuat otomatis).</div>
 </div>
 <div>
 <label for="login_password">Password Login</label>

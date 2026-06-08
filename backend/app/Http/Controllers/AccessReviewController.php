@@ -49,26 +49,16 @@ class AccessReviewController extends Controller
             return back()->withErrors(['status' => 'Permohonan ini sudah pernah direview.'])->withInput();
         }
 
-        $user = User::where('email', $data['login_email'])->first();
-        if (!$user) {
-            return back()
-                ->withErrors([
-                    'login_email' =>
-                        'Email "' . $data['login_email'] . '" belum terdaftar di database. ' .
-                        'Buat dulu via terminal: php artisan app:create-user',
-                ])
-                ->withInput();
-        }
-
-        if (!password_verify($data['login_password'], $user->password)) {
-            return back()
-                ->withErrors([
-                    'login_password' =>
-                        'Password yang dimasukkan TIDAK cocok dengan akun di database. ' .
-                        'Pastikan Anda mengetik password yang sama dengan yang dibuat via artisan.',
-                ])
-                ->withInput();
-        }
+        // Buat akun login secara otomatis dari email + password yang diisi admin.
+        // Jika email sudah terdaftar, password-nya diperbarui agar kredensial yang
+        // dikirim ke pemohon dijamin valid. Tidak perlu lagi `php artisan app:create-user`.
+        $user = User::updateOrCreate(
+            ['email' => $data['login_email']],
+            [
+                'name'     => $req->name ?: $data['login_email'],
+                'password' => $data['login_password'], // auto-hashed via cast 'hashed'
+            ]
+        );
 
         $req->update([
             'status'         => 'approved',
