@@ -8,6 +8,8 @@ use App\Http\Controllers\ThresholdController;
 use App\Http\Controllers\Citizen\CitizenAuthController;
 use App\Http\Controllers\Citizen\CitizenNotificationController;
 use App\Http\Controllers\Citizen\CitizenPasswordResetController;
+use App\Http\Controllers\AccessRequestController;
+
 
 // Login
 Route::post('/login', [AuthenticatedSessionController::class, 'store']);
@@ -41,6 +43,10 @@ Route::get('/regions', [ThresholdController::class, 'getRegions']);
 
 // Khusus ESP32 / Hardware
 Route::get('/siaga/status', [SensorController::class, 'getSiagaStatus']);
+
+// Access Requests
+Route::post('/access-requests', [AccessRequestController::class, 'store']);
+Route::get('/access-requests/{id}/letter', [AccessRequestController::class, 'letter']);
 
 // Citizen Auth, Reset Password, and Notification Management
 Route::prefix('citizen')->group(function () {
