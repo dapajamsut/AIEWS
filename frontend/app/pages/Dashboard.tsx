@@ -224,8 +224,11 @@ export default function Dashboard() {
     // 2. Hubungkan ke MQTT Broker via protokol WebSocket (ws:// atau wss://)
     const clientId = `makesens_web_${Math.random().toString(16).slice(3)}`;
 
-    // Menggunakan Secure WebSocket (WSS) dan menghapus timeout 4 detik yang terlalu sempit
-    const client = mqtt.connect('ws://localhost:9001', {
+    // URL broker websocket dibuat configurable lewat env.
+    // - Production (https://makesens.my.id) HARUS pakai wss:// (mis. wss://makesens.my.id/mqtt)
+    // - Dev lokal jatuh ke ws://localhost:9001
+    const MQTT_WS_URL = process.env.NEXT_PUBLIC_MQTT_URL || 'ws://localhost:9001';
+    const client = mqtt.connect(MQTT_WS_URL, {
       clientId: clientId,
       clean: true,
     });

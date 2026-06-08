@@ -336,7 +336,7 @@ export default function WeatherAIPage() {
     // MQTT realtime
     let client: any = null;
     try {
-      client = mqtt.connect("ws://localhost:9001");
+      client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL || "ws://localhost:9001");
       client.on("connect", () => client.subscribe("makesens/test/tmj"));
       client.on("message", (topic: string, message: any) => {
         if (topic === "makesens/test/tmj") {
