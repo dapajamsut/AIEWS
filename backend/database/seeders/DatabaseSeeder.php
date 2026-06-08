@@ -32,5 +32,8 @@ class DatabaseSeeder extends Seeder
                 'password' => bcrypt('pblsem5'),
             ]
         );
+
+        // Zona rawan banjir untuk fitur geofence aplikasi mobile.
+        $this->call(ZoneSeeder::class);
     }
 }
