@@ -123,12 +123,16 @@ services:
   kong:
     image: kong:3.6
     container_name: kong-gateway
+    env_file:
+      - ./backend/.env   # Supaya KONG_RASPI_API_KEY terbaca
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_ADMIN_LISTEN: 127.0.0.1:8001
       KONG_LOG_LEVEL: warn
+      # 🔐 API Key untuk ESP32/sensor — diambil dari env file
+      KONG_RASPI_API_KEY: ${KONG_RASPI_API_KEY}
     ports:
       - "8080:8000"             # gateway publik
       - "127.0.0.1:8001:8001"  # admin API — hanya localhost!
