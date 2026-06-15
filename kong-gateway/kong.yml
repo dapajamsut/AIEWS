@@ -22,7 +22,24 @@ services:
           - GET
         strip_path: false
 
-      # 🌐 API LAIN (LOGIN DLL)
+      # 🌐 API LAIN (LOGIN DLL) — rate limit ketat untuk auth endpoints
+      - name: api-login-route
+        paths:
+          - /api/login
+          - /api/citizen/login
+          - /api/citizen/forgot-password
+          - /api/citizen/reset-password
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              policy: local
+              error_message: "Terlalu banyak percobaan. Coba lagi dalam 1 menit."
+
+      # 🌐 API LAIN
       - name: api-route
         paths:
           - /api
@@ -40,23 +57,55 @@ services:
         strip_path: false
 
 plugins:
+  # 🔐 Security Headers
   - name: response-transformer
     config:
       add:
         headers:
           - "X-Gateway: KONG"
+          - "X-Content-Type-Options: nosniff"
+          - "X-Frame-Options: DENY"
+          - "X-XSS-Protection: 1; mode=block"
+          - "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+          - "Referrer-Policy: strict-origin-when-cross-origin"
 
+  # 🌐 CORS — hanya izinkan domain resmi
+  - name: cors
+    config:
+      origins:
+        - https://makesens.my.id
+      methods:
+        - GET
+        - POST
+        - PATCH
+        - PUT
+        - DELETE
+        - OPTIONS
+      headers:
+        - Authorization
+        - Content-Type
+        - X-Requested-With
+      credentials: true
+      max_age: 3600
+
+  # 🚦 Global Rate Limiting
   - name: rate-limiting
     config:
       minute: 120
       policy: local
 
+  # 📦 Request Size Limiting
   - name: request-size-limiting
     config:
       allowed_payload_size: 10
       size_unit: megabytes
 
+  # 🤖 Bot Detection
+  - name: bot-detection
+
 consumers:
   - username: raspi
     keyauth_credentials:
-      - key: "pikel2"
+      # 🔐 API Key di-set via environment variable — JANGAN hardcode!
+      # Set KONG_RASPI_API_KEY di backend/.env dan docker-compose
+      - key: "${KONG_RASPI_API_KEY}"

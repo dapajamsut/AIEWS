@@ -11,17 +11,20 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
     ports:
-      - "5432:5432"
+      # Port 5432 TIDAK di-expose ke host — akses hanya via internal Docker network
+      # - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ews_network
+    security_opt:
+      - no-new-privileges:true
 
   # ==========================================
   # MQTT Broker (Eclipse Mosquitto)
   # ==========================================
   mqtt-broker:
-    image: eclipse-mosquitto:latest
+    image: eclipse-mosquitto:2.0.18
     container_name: ews_mqtt_broker
     restart: unless-stopped
     ports:
@@ -33,9 +36,8 @@ services:
       - mosquitto_log:/mosquitto/log
     networks:
       - ews_network
-
-  # ==========================================
-  # Laravel PHP-FPM Backend Application
+    security_opt:
+      - no-new-privileges:true
   # ==========================================
   laravel_app:
     build:
@@ -61,6 +63,8 @@ services:
     depends_on:
       - postgres
       - mqtt-broker
+    security_opt:
+      - no-new-privileges:true
 
   # ==========================================
   # Nginx Web Server (for Laravel Backend)
@@ -78,6 +82,8 @@ services:
       - ews_network
     depends_on:
       - laravel_app
+    security_opt:
+      - no-new-privileges:true
 
   # ==========================================
   # MQTT Listener (Laravel Background Task)
@@ -108,6 +114,8 @@ services:
       - postgres
       - mqtt-broker
       - laravel_app
+    security_opt:
+      - no-new-privileges:true
 
   # ==========================================
   # API Gateway (Kong)
@@ -119,11 +127,11 @@ services:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
       KONG_PROXY_LISTEN: 0.0.0.0:8000
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
-      KONG_LOG_LEVEL: info
+      KONG_ADMIN_LISTEN: 127.0.0.1:8001
+      KONG_LOG_LEVEL: warn
     ports:
-      - "8080:8000"  # gateway publik (di-forward oleh Nginx host ke port 8080)
-      - "8001:8001"  # admin API
+      - "8080:8000"             # gateway publik
+      - "127.0.0.1:8001:8001"  # admin API — hanya localhost!
     volumes:
       - ./kong-gateway/kong.yml:/kong/declarative/kong.yml
     restart: unless-stopped
@@ -131,6 +139,8 @@ services:
       - ews_network
     depends_on:
       - nginx
+    security_opt:
+      - no-new-privileges:true
 
   # ==========================================
   # Frontend Application (Next.js)
@@ -150,6 +160,8 @@ services:
       - ews_network
     depends_on:
       - kong
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   mosquitto_data:
