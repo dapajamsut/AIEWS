@@ -58,8 +58,7 @@ services:
       - DB_PASSWORD=admin
       - MQTT_HOST=mqtt-broker
       - MQTT_PORT=1883
-      - MQTT_USERNAME=${MQTT_USERNAME}
-      - MQTT_PASSWORD=${MQTT_PASSWORD}
+      # MQTT_USERNAME dan MQTT_PASSWORD sudah di-pass via env_file: ./backend/.env
     networks:
       - ews_network
     depends_on:
@@ -110,8 +109,7 @@ services:
       - DB_PASSWORD=admin
       - MQTT_HOST=mqtt-broker
       - MQTT_PORT=1883
-      - MQTT_USERNAME=${MQTT_USERNAME}
-      - MQTT_PASSWORD=${MQTT_PASSWORD}
+      # MQTT_USERNAME dan MQTT_PASSWORD sudah di-pass via env_file: ./backend/.env
     networks:
       - ews_network
     depends_on:
@@ -135,8 +133,7 @@ services:
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_ADMIN_LISTEN: 127.0.0.1:8001
       KONG_LOG_LEVEL: warn
-      # 🔐 API Key untuk ESP32/sensor — diambil dari env file
-      KONG_RASPI_API_KEY: ${KONG_RASPI_API_KEY}
+      # KONG_RASPI_API_KEY sudah di-pass via env_file: ./backend/.env
     ports:
       - "8080:8000"             # gateway publik
       - "127.0.0.1:8001:8001"  # admin API — hanya localhost!
