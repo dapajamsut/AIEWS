@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# MQTT password file — berisi hash, jangan commit ke git!
+mosquitto/config/mosquitto.passwd
