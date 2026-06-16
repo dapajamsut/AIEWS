@@ -106,7 +106,9 @@ export default function CameraPage() {
   // Derived: interval refresh CCTV dalam detik (ikut Auto-Snapshot).
   const refreshInterval = Math.max(1, autoSnapshotInterval) * 60;
 
-  const CCTV_IMAGE_URL = `http://cctv.makesens.my.id/snapshot`;
+  // URL relative → diproksikan Next.js ke http://cctv.makesens.my.id/snapshot
+  // Ini menghindari: (1) Mixed Content (HTTP dari halaman HTTPS), (2) CORS tainted-canvas.
+  const CCTV_IMAGE_URL = `/cctv-snapshot`;
 
   const formatTimeWithoutSeconds = (timeStr: string) => {
     if (!timeStr) return "";

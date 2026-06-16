@@ -36,7 +36,9 @@ export default function Dashboard() {
   const [autoEnabled, setAutoEnabled] = useState(false);
   const [countdown, setCountdown] = useState(300);
 
-  const CCTV_IMAGE_URL = `http://cctv.makesens.my.id/snapshot?t=${refreshKey}`;
+  // URL relative → diproksikan Next.js ke http://cctv.makesens.my.id/snapshot
+  // Ini menghindari: (1) Mixed Content (HTTP dari halaman HTTPS), (2) CORS tainted-canvas.
+  const CCTV_IMAGE_URL = `/cctv-snapshot?t=${refreshKey}`;
 
   // --- LOGIC TIMER (sinkron dengan Auto-Snapshot di camera page) ---
   // Camera page menyimpan ke localStorage:

@@ -56,8 +56,9 @@ export default function CameraPage() {
   const [isSensorValid, setIsSensorValid] = useState<boolean>(true);
   const previousWaterValueRef = useRef<number | null>(null);
 
-  // const CCTV_IMAGE_URL = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/snapshot`;
-  const CCTV_IMAGE_URL = `http://cctv.makesens.my.id/snapshot`;
+  // URL relative → diproksikan Next.js ke http://cctv.makesens.my.id/snapshot
+  // Ini menghindari: (1) Mixed Content (HTTP dari halaman HTTPS), (2) CORS tainted-canvas.
+  const CCTV_IMAGE_URL = `/cctv-snapshot`;
 
   // ── State Baru untuk Analisis Grafik Dual Line Per Jam ──
   const [hourlyChartData, setHourlyChartData] = useState<any[]>([]);
