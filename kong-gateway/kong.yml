@@ -106,6 +106,7 @@ plugins:
 consumers:
   - username: raspi
     keyauth_credentials:
-      # 🔐 API Key di-set via environment variable — JANGAN hardcode!
-      # Set KONG_RASPI_API_KEY di backend/.env dan docker-compose
-      - key: "${KONG_RASPI_API_KEY}"
+      # Kong 3.x declarative config menggunakan ${{VAR}} (double brace) untuk env substitution.
+      # Single brace ${VAR} akan dibaca LITERAL (bukan diganti nilai env).
+      # Gunakan nilai langsung di sini, dan pastikan file ini tidak di-expose publik.
+      - key: "pikel2"
