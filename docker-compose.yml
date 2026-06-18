@@ -10,9 +10,7 @@ services:
       POSTGRES_DB: makesens_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
-    ports:
-      # Port 5432 TIDAK di-expose ke host — akses hanya via internal Docker network
-      # - "5432:5432"
+    # Port 5432 tidak di-expose ke host — akses hanya via internal Docker network
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
