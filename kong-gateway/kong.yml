@@ -4,7 +4,7 @@ services:
   - name: laravel-api
     url: http://nginx
     routes:
-      # 🔐 POST SENSOR (PAKAI API KEY)
+      # 🔐 POST SENSOR (PAKAI API KEY — dari Raspberry Pi)
       - name: sensors-secure
         paths:
           - /api/sensors
@@ -14,7 +14,7 @@ services:
         plugins:
           - name: key-auth
 
-      # 🌐 GET SENSOR (PUBLIC)
+      # 🌐 GET SENSOR (PUBLIC — untuk widget / dashboard publik)
       - name: sensors-public
         paths:
           - /api/sensors/latest
@@ -22,13 +22,25 @@ services:
           - GET
         strip_path: false
 
-      # 🌐 API LAIN (LOGIN DLL) — rate limit ketat untuk auth endpoints
+      # 🌐 DATA PUBLIK — cuaca & wilayah
+      - name: api-public-data
+        paths:
+          - /api/weather
+          - /api/regions
+        methods:
+          - GET
+        strip_path: false
+
+      # 🔐 AUTH ENDPOINTS — rate limit ketat (anti brute-force)
       - name: api-login-route
         paths:
           - /api/login
           - /api/citizen/login
           - /api/citizen/forgot-password
           - /api/citizen/reset-password
+          - /api/citizen/register
+          - /api/citizen/verify-registration
+          - /api/citizen/resend-registration-otp
         methods:
           - POST
         strip_path: false
@@ -39,7 +51,76 @@ services:
               policy: local
               error_message: "Terlalu banyak percobaan. Coba lagi dalam 1 menit."
 
-      # 🌐 API LAIN
+      # 📝 FORM PENDAFTARAN AKSES — rate limit sedang
+      - name: api-access-request
+        paths:
+          - /api/access-requests
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 5
+              policy: local
+              error_message: "Terlalu banyak permintaan. Coba lagi dalam 1 menit."
+
+      # 🔐 ADMIN ROUTES — semua route admin (auth ditangani Laravel Sanctum)
+      # Rate limit lebih ketat dari global untuk mencegah scraping
+      - name: api-admin-logs
+        paths:
+          - /api/logs
+          - /api/weather-cache
+        methods:
+          - GET
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60
+              policy: local
+
+      - name: api-admin-thresholds
+        paths:
+          - /api/thresholds
+        methods:
+          - GET
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+              policy: local
+
+      - name: api-admin-camera
+        paths:
+          - /api/camera
+        methods:
+          - GET
+          - POST
+          - DELETE
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60
+              policy: local
+
+      - name: api-admin-ai
+        paths:
+          - /api/ai-prediction
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 20
+              policy: local
+
+      # 🌐 API UMUM (user, citizen, dll) — auth ditangani Laravel Sanctum
       - name: api-route
         paths:
           - /api
@@ -88,7 +169,7 @@ plugins:
       credentials: true
       max_age: 3600
 
-  # 🚦 Global Rate Limiting
+  # 🚦 Global Rate Limiting (fallback untuk semua route)
   - name: rate-limiting
     config:
       minute: 120
