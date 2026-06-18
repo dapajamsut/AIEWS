@@ -126,6 +126,16 @@ services:
           - /api
         strip_path: false
 
+      # 🌐 ADMIN WEB PAGES — halaman verifikasi access request (dari link email)
+      # Dulu langsung ke port 8002, sekarang lewat Kong → Nginx internal
+      - name: admin-web-route
+        paths:
+          - /admin
+        methods:
+          - GET
+          - POST
+        strip_path: false
+
   - name: camera-service
     url: http://cctv.makesens.my.id
     routes:
