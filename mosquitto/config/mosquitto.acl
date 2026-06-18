@@ -1,0 +1,28 @@
+# ============================================================
+# Mosquitto ACL (Access Control List)
+# Membatasi client mana yang bisa publish/subscribe ke topic mana.
+#
+# Syntax:
+#   topic [read|write|readwrite] <topicpattern>
+#   → Berlaku untuk semua anonymous client
+#
+#   user <username>
+#   topic [read|write|readwrite] <topicpattern>
+#   → Berlaku untuk user tertentu
+# ============================================================
+
+# ─── Anonymous / Laravel Backend ──────────────────────────────────────────────
+# Laravel (mqtt_listener) connect tanpa credentials.
+# Boleh: subscribe sensor data, publish status siaga
+topic read  makesens/test/tmj
+topic write makesens/test/tmj/siaga
+topic read  makesens/#
+
+# ─── Authenticated: raspi_sensor (ESP32 / Raspberry Pi) ───────────────────────
+user raspi_sensor
+topic write makesens/test/tmj
+topic read  makesens/test/tmj/siaga
+
+# ─── Authenticated: makesens_user (admin / debugging) ─────────────────────────
+user makesens_user
+topic readwrite makesens/#
