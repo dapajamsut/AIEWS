@@ -138,7 +138,15 @@ services:
         strip_path: false
 
 plugins:
-  # 🔐 Security Headers
+  # 🔐 Tandai semua request yang lewat Kong ke upstream (Nginx cek header ini)
+  # Nginx akan tolak request tanpa header ini → Double-layer protection
+  - name: request-transformer
+    config:
+      add:
+        headers:
+          - "X-Kong-Proxy: true"
+
+  # 🔐 Security Headers (ditambahkan ke response balik ke client)
   - name: response-transformer
     config:
       add:

@@ -74,8 +74,11 @@ services:
     image: nginx:alpine
     container_name: ews_nginx
     restart: unless-stopped
-    ports:
-      - "8002:80"
+    # ✅ Port 8002 TIDAK di-expose ke host — Nginx hanya boleh diakses
+    # dari Kong via internal Docker network (http://nginx).
+    # Expose port ini hanya untuk debugging lokal jika diperlukan.
+    # ports:
+    #   - "127.0.0.1:8002:80"
     volumes:
       - ./backend:/var/www
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
@@ -135,7 +138,7 @@ services:
       KONG_LOG_LEVEL: warn
       # KONG_RASPI_API_KEY sudah di-pass via env_file: ./backend/.env
     ports:
-      - "8080:8000"             # gateway publik
+      - "127.0.0.1:8080:8000"   # ✅ Hanya dari host proxy (Caddy/Nginx SSL)
       - "127.0.0.1:8001:8001"  # admin API — hanya localhost!
     volumes:
       - ./kong-gateway/kong.yml:/kong/declarative/kong.yml
@@ -160,7 +163,7 @@ services:
     container_name: ews_frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"  # ✅ Hanya dari host proxy (Caddy/Nginx SSL)
     networks:
       - ews_network
     depends_on:
