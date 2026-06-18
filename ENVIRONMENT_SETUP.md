@@ -52,9 +52,9 @@ OPENWEATHER_LON=106.8229
 
 Test the API endpoint:
 ```bash
-curl -H "apikey: pikel2" http://localhost:8000/api/regions
+curl -H "apikey: YOUR_API_KEY" http://localhost:8000/api/regions
 
-curl -H "apikey: pikel2" http://localhost:8000/api/weather
+curl -H "apikey: YOUR_API_KEY" http://localhost:8000/api/weather
 ```
 
 Expected response (if API key is valid):
@@ -74,7 +74,7 @@ Expected response (if API key is valid):
 # Terminal 1: Start Laravel server on port 8000
 php artisan serve
 
-# Test: curl http://localhost:8000/api/weather -H "apikey: pikel2"
+# Test: curl http://localhost:8000/api/weather -H "apikey: YOUR_API_KEY"
 ```
 
 ### Start Frontend Dev Server

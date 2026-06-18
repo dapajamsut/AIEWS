@@ -150,14 +150,14 @@ UI Updates
 
 ```bash
 # Get all regions
-curl -H "apikey: pikel2" http://localhost:8000/api/regions
+curl -H "apikey: YOUR_API_KEY" http://localhost:8000/api/regions
 
 # Get weather for specific region
-curl -H "apikey: pikel2" \
+curl -H "apikey: YOUR_API_KEY" \
   "http://localhost:8000/api/weather?region=depok_beji&lat=-6.3625&lon=106.8253"
 
 # Get weather for default region
-curl -H "apikey: pikel2" http://localhost:8000/api/weather
+curl -H "apikey: YOUR_API_KEY" http://localhost:8000/api/weather
 ```
 
 ### Expected Response

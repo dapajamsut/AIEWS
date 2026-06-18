@@ -47,7 +47,7 @@ OPENWEATHER_LON=106.8456
 Setelah setup API key, test endpoint:
 
 ```bash
-curl -H "apikey: pikel2" http://localhost:8000/api/weather
+curl -H "apikey: YOUR_API_KEY" http://localhost:8000/api/weather
 ```
 
 Response yang diharapkan:
@@ -105,7 +105,7 @@ Threshold untuk SIAGA (berdasarkan tinggi air) masih bisa diubah manual melalui 
 ### Get Weather Data dengan Auto Thresholds
 ```
 GET /api/weather
-Headers: apikey: pikel2
+Headers: apikey: YOUR_API_KEY
 ```
 
 ### Get/Update SIAGA Thresholds (Manual)
