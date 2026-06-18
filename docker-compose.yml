@@ -7,9 +7,9 @@ services:
     container_name: ews_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: makesens_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: ${POSTGRES_DB:-makesens_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
     # Port 5432 tidak di-expose ke host — akses hanya via internal Docker network
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -51,9 +51,9 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_DATABASE=makesens_db
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=admin
+      - DB_DATABASE=${POSTGRES_DB:-makesens_db}
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-admin}
       - MQTT_HOST=mqtt-broker
       - MQTT_PORT=1883
       # MQTT_USERNAME dan MQTT_PASSWORD sudah di-pass via env_file: ./backend/.env
@@ -105,9 +105,9 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_DATABASE=makesens_db
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=admin
+      - DB_DATABASE=${POSTGRES_DB:-makesens_db}
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-admin}
       - MQTT_HOST=mqtt-broker
       - MQTT_PORT=1883
       # MQTT_USERNAME dan MQTT_PASSWORD sudah di-pass via env_file: ./backend/.env

@@ -25,3 +25,7 @@ Thumbs.db
 
 # MQTT password file — berisi hash, jangan commit ke git!
 mosquitto/config/mosquitto.passwd
+
+# Database dump — bisa berisi data sensitif, jangan commit!
+ews_banjir.sql
+*.sql

@@ -205,7 +205,10 @@ plugins:
 consumers:
   - username: raspi
     keyauth_credentials:
-      # Kong 3.x declarative config menggunakan ${{VAR}} (double brace) untuk env substitution.
-      # Single brace ${VAR} akan dibaca LITERAL (bukan diganti nilai env).
-      # Gunakan nilai langsung di sini, dan pastikan file ini tidak di-expose publik.
+      # ⚠️  PERINGATAN KEAMANAN:
+      # Key ini terlihat di repository. Sebelum deploy ke production,
+      # ganti dengan nilai random yang kuat menggunakan:
+      #   openssl rand -hex 32
+      # Lalu update juga di backend/.env → KONG_RASPI_API_KEY
+      # dan di ESP32/Raspberry Pi yang mengirim data sensor.
       - key: "pikel2"
