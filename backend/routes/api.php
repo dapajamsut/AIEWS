@@ -27,6 +27,12 @@ Route::get('/sensors/latest', [SensorController::class, 'latest']);
 Route::get('/weather', [ThresholdController::class, 'getWeatherData']);
 Route::get('/regions', [ThresholdController::class, 'getRegions']);
 
+// Cache cuaca — dipanggil dari dashboard publik (tanpa auth)
+Route::post('/weather-cache', [SensorController::class, 'cacheWeatherData']);
+
+// Thresholds — diperlukan dashboard publik untuk tampilkan siaga level
+Route::get('/thresholds', [ThresholdController::class, 'index']);
+
 // Form pendaftaran akses baru (di halaman login, sebelum punya akun)
 Route::post('/access-requests', [AccessRequestController::class, 'store']);
 
@@ -80,12 +86,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/logs/settings',              [SensorController::class, 'getLoggingSettings']);
     Route::post('/logs/settings',             [SensorController::class, 'updateLoggingSettings']);
     Route::get('/logs',                       [SensorController::class, 'getLogs']);
-    Route::post('/weather-cache',             [SensorController::class, 'cacheWeatherData']);
     Route::get('/logs/exports',               [SensorController::class, 'getExports']);
     Route::get('/logs/exports/{filename}',    [SensorController::class, 'downloadExport']);
 
-    // ─── Threshold settings ────────────────────────────────────────────
-    Route::get('/thresholds',  [ThresholdController::class, 'index']);
+    // ─── Threshold settings (POST — hanya admin bisa ubah) ────────────
     Route::post('/thresholds', [ThresholdController::class, 'store']);
 
     // ─── Camera snapshots (gambar CCTV terkompresi) ────────────────────
