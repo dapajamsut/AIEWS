@@ -11,12 +11,12 @@
 #   → Berlaku untuk user tertentu
 # ============================================================
 
-# ─── Anonymous / Laravel Backend ──────────────────────────────────────────────
-# Laravel (mqtt_listener) connect tanpa credentials.
-# Boleh: subscribe sensor data, publish status siaga
-topic read  makesens/test/tmj
-topic write makesens/test/tmj/siaga
-topic read  makesens/#
+# ─── Anonymous / Laravel Backend & Sensor tanpa auth ──────────────────────────
+# Laravel (mqtt_listener) connect tanpa credentials → subscribe sensor data
+# Dummy sensor & ESP32 tanpa auth → publish sensor data
+topic readwrite makesens/test/tmj
+topic write     makesens/test/tmj/siaga
+topic read      makesens/#
 
 # ─── Authenticated: raspi_sensor (ESP32 / Raspberry Pi) ───────────────────────
 user raspi_sensor
