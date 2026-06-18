@@ -205,10 +205,7 @@ plugins:
 consumers:
   - username: raspi
     keyauth_credentials:
-      # ⚠️  PERINGATAN KEAMANAN:
-      # Key ini terlihat di repository. Sebelum deploy ke production,
-      # ganti dengan nilai random yang kuat menggunakan:
-      #   openssl rand -hex 32
-      # Lalu update juga di backend/.env → KONG_RASPI_API_KEY
-      # dan di ESP32/Raspberry Pi yang mengirim data sensor.
-      - key: "pikel2"
+      # Ganti nilai di bawah dengan API key yang kuat.
+      # Generate dengan: openssl rand -hex 32
+      # Lalu update juga di ESP32/Raspberry Pi yang mengirim data sensor.
+      - key: "GANTI_DENGAN_API_KEY_YANG_KUAT"

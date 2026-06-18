@@ -29,3 +29,7 @@ mosquitto/config/mosquitto.passwd
 # Database dump — bisa berisi data sensitif, jangan commit!
 ews_banjir.sql
 *.sql
+
+# Kong config — berisi API key asli, jangan commit!
+# Salin dari kong-gateway/kong.yml.example dan isi key yang sebenarnya.
+kong-gateway/kong.yml
