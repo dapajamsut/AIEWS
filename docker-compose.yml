@@ -97,7 +97,7 @@ services:
     container_name: ews_mqtt_listener
     restart: unless-stopped
     working_dir: /var/www
-    command: php artisan mqtt:listen
+    command: sh -c "php artisan config:clear && php artisan mqtt:listen"
     volumes:
       - ./backend:/var/www
     env_file:
