@@ -26,12 +26,18 @@
 #include <ArduinoJson.h>
 
 // ==========================================
-// PIN CONFIG
-// ==========================================
 #define MERAH  26
 #define KUNING 27
 #define HIJAU  13
 #define BUZZER 25
+
+
+// Konfigurasi tipe relay (Disesuaikan untuk modul Active-LOW dengan wiring NC)
+// NC (Normally Closed) membutuhkan koil aktif (LOW) agar kontak terbuka (MATI).
+// Koil mati (HIGH) membuat kontak terhubung kembali (NYALA).
+#define RELAY_ON  HIGH
+#define RELAY_OFF LOW
+
 
 // ==========================================
 // XBEE UART CONFIG
@@ -50,7 +56,7 @@ const char* password = "kelompok2";
 // ==========================================
 // MQTT CONFIG
 // ==========================================
-const char* mqtt_server = "192.168.0.8";
+const char* mqtt_server = "34.101.128.243";
 const int   mqtt_port   = 1883;
 const char* mqtt_topic  = "makesens/test/tmj/siaga";
 
@@ -97,9 +103,11 @@ void setup_wifi() {
   WiFi.disconnect(true);
   delay(300);
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true); // Sangat penting agar ESP32 otomatis menyambung kembali ke WiFi
+
+  Serial.printf("Connecting WiFi to SSID: %s\n", ssid);
   WiFi.begin(ssid, password);
 
-  Serial.print("Connecting WiFi");
   unsigned long t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000) {
     delay(500);
@@ -244,25 +252,19 @@ void connectMQTT() {
   String clientId = "ews_esp32_";
   clientId += String(millis(), HEX);
 
-  Serial.print("\n🔌 Connecting MQTT... ID: ");
-  Serial.println(clientId);
+  Serial.printf("\n🔌 Connecting MQTT to %s:%d (SSID: %s, ESP32 IP: %s) ...\n", 
+                mqtt_server, mqtt_port, WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+  Serial.printf("   Client ID: %s\n", clientId.c_str());
 
-  bool ok = client.connect(
-    clientId.c_str(),
-    NULL, NULL,
-    NULL, 0, false, NULL,
-    true
-  );
+  bool ok = client.connect(clientId.c_str());
 
   if (ok) {
     Serial.println("✅ MQTT CONNECTED!");
     bool sub = client.subscribe(mqtt_topic, 1);
-    Serial.print("📡 Subscribe ["); Serial.print(mqtt_topic);
-    Serial.print("]: "); Serial.println(sub ? "✅ OK" : "❌ GAGAL");
+    Serial.printf("📡 Subscribe [%s]: %s\n", mqtt_topic, sub ? "✅ OK" : "❌ GAGAL");
     client.publish("makesens/test/tmj/esp32", "ews_esp32 online", false);
   } else {
-    Serial.print("❌ MQTT GAGAL rc=");
-    Serial.println(client.state());
+    Serial.printf("❌ MQTT GAGAL rc=%d (Silakan cek kecocokan IP Broker MQTT Anda!)\n", client.state());
   }
 }
 
@@ -277,28 +279,28 @@ void runStatus(int status) {
     lastBuzzerToggle = now;
     if (status == 2) {
       buzzerState = true;
-      digitalWrite(BUZZER, LOW); // Mulai dengan buzzer menyala
+      digitalWrite(BUZZER, RELAY_ON); // Mulai dengan buzzer menyala
     } else if (status == 1) {
       buzzerState = true;
-      digitalWrite(BUZZER, LOW);
+      digitalWrite(BUZZER, RELAY_ON);
     } else {
       buzzerState = false;
-      digitalWrite(BUZZER, HIGH);
+      digitalWrite(BUZZER, RELAY_OFF);
     }
     Serial.printf("🔄 Status berubah → SIAGA %d (src: %s)\n", status, currentSource);
   }
 
   if (status == 1) {
     // Bahaya: Merah nyala, lainnya mati, buzzer menyala terus
-    digitalWrite(HIJAU,  HIGH);
-    digitalWrite(KUNING, HIGH);
-    digitalWrite(MERAH,  LOW);
-    digitalWrite(BUZZER, LOW);
+    digitalWrite(HIJAU,  RELAY_OFF);
+    digitalWrite(KUNING, RELAY_OFF);
+    digitalWrite(MERAH,  RELAY_ON);
+    digitalWrite(BUZZER, RELAY_ON);
   } else if (status == 2) {
     // Waspada: Kuning nyala, lainnya mati
-    digitalWrite(HIJAU,  HIGH);
-    digitalWrite(KUNING, LOW);
-    digitalWrite(MERAH,  HIGH);
+    digitalWrite(HIJAU,  RELAY_OFF);
+    digitalWrite(KUNING, RELAY_ON);
+    digitalWrite(MERAH,  RELAY_OFF);
 
     // Pola bip non-blocking: 2 detik ON, 5 detik OFF
     unsigned long elapsed = now - lastBuzzerToggle;
@@ -306,27 +308,27 @@ void runStatus(int status) {
       if (elapsed >= 2000) {
         buzzerState = false;
         lastBuzzerToggle = now;
-        digitalWrite(BUZZER, HIGH); // Matikan buzzer
+        digitalWrite(BUZZER, RELAY_OFF); // Matikan buzzer
       }
     } else {
       if (elapsed >= 5000) {
         buzzerState = true;
         lastBuzzerToggle = now;
-        digitalWrite(BUZZER, LOW); // Nyalakan buzzer
+        digitalWrite(BUZZER, RELAY_ON); // Nyalakan buzzer
       }
     }
   } else if (status == 3) {
     // Aman: Hijau nyala saja, lainnya mati, buzzer mati
-    digitalWrite(HIJAU,  LOW);
-    digitalWrite(KUNING, HIGH);
-    digitalWrite(MERAH,  HIGH);
-    digitalWrite(BUZZER, HIGH);
+    digitalWrite(HIJAU,  RELAY_ON);
+    digitalWrite(KUNING, RELAY_OFF);
+    digitalWrite(MERAH,  RELAY_OFF);
+    digitalWrite(BUZZER, RELAY_OFF);
   } else {
     // Unknown: semua mati
-    digitalWrite(HIJAU,  HIGH);
-    digitalWrite(KUNING, HIGH);
-    digitalWrite(MERAH,  HIGH);
-    digitalWrite(BUZZER, HIGH);
+    digitalWrite(HIJAU,  RELAY_OFF);
+    digitalWrite(KUNING, RELAY_OFF);
+    digitalWrite(MERAH,  RELAY_OFF);
+    digitalWrite(BUZZER, RELAY_OFF);
   }
 }
 
@@ -382,11 +384,11 @@ void setup() {
   pinMode(HIJAU,  OUTPUT);
   pinMode(BUZZER, OUTPUT);
 
-  // Boot state: semua aktif (indikator booting)
-  digitalWrite(MERAH,  HIGH);
-  digitalWrite(KUNING, HIGH);
-  digitalWrite(HIJAU,  HIGH);
-  digitalWrite(BUZZER, HIGH);
+  // Boot state: matikan semua relay saat awal
+  digitalWrite(MERAH,  RELAY_OFF);
+  digitalWrite(KUNING, RELAY_OFF);
+  digitalWrite(HIJAU,  RELAY_OFF);
+  digitalWrite(BUZZER, RELAY_OFF);
 
   // 1) Inisialisasi XBee Serial2
   XBeeSerial.begin(XBEE_BAUD, SERIAL_8N1, XBEE_RX_PIN, XBEE_TX_PIN);
