@@ -105,9 +105,10 @@ class MqttListenCommand extends Command
                     }
 
                     if ($updatedSensors) {
-                        // Ambil Threshold untuk Batas Finis (Siaga 3 = threshold tertinggi = paling bahaya)
+                        // Ambil Threshold — Siaga 1 = threshold jarak terkecil = paling bahaya
+                        // Sensor ultrasonik: jarak KECIL = air TINGGI = BAHAYA
                         $thresholds = $this->getThresholds();
-                        $siaga3_cm = $thresholds['siaga3']['water'] ?? 150; // threshold tertinggi
+                        $siaga1_cm = $thresholds['siaga1']['water'] ?? 50; // jarak bahaya (terkecil)
                         
                         // Default Siaga 3 (Normal in numerical terms for UI) 
                         // Wait, in Dashboard 3 is normal, 2 is warning, 1 is critical
@@ -121,15 +122,18 @@ class MqttListenCommand extends Command
                         $L_segment = $thresholdModel->physics_l_segment ?? 1000;
 
                         $h_m = $siagaValue / 100;
-                        $h_siaga3_m = $siaga3_cm / 100;
+                        $h_siaga1_m = $siaga1_cm / 100;
                         
                         // Ambil intensitas hujan LANGSUNG dari payload (bukan dari DB)
                         $I = $rainValue;
 
-                        if ($siagaValue >= $siaga3_cm) {
+                        // Sensor ultrasonik: distance <= siaga1 = air sudah meluap = BAHAYA
+                        if ($siagaValue <= $siaga1_cm) {
                             $siagaStatus = '1'; // Sudah meluap
                         } else {
-                            $sisa_tinggi = $h_siaga3_m - $h_m;
+                            // Sisa jarak sebelum danger: current_distance - siaga1_distance
+                            // Semakin kecil = semakin dekat bahaya
+                            $sisa_tinggi = $h_m - $h_siaga1_m;
                             $volume_sisa = ($sisa_tinggi * $w) * $L_segment;
                             
                             $qHujan = $C * ($I / 3600000) * $A_DAS;
@@ -148,9 +152,9 @@ class MqttListenCommand extends Command
                                     $siagaStatus = '3'; // Siaga 3 = NORMAL (MQTT '3')
                                 }
                             } else {
-                                // Fallback if no rain but water is dangerously high due to upstream
+                                // Fallback no rain: distance <= siaga2 = waspada
                                 $siaga2_cm = $thresholds['siaga2']['water'] ?? 100;
-                                if ($siagaValue >= $siaga2_cm) {
+                                if ($siagaValue <= $siaga2_cm) {
                                     $siagaStatus = '2';
                                 }
                             }

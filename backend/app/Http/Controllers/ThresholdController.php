@@ -58,14 +58,14 @@ class ThresholdController extends Controller
                 $actualWater = $waterSensor ? (float) $waterSensor->value : 0;
                 
                 $siagaStatus = '3'; // Default Normal
-                // siaga3 = threshold tertinggi = paling bahaya → trigger MQTT '1'
-                $batasSiaga3 = $threshold->getAttribute('water_siaga3') ?? $threshold->getAttribute('siaga3') ?? 150;
+                // Sensor ultrasonik: jarak KECIL = air TINGGI = BAHAYA → pakai <=
+                $batasSiaga1 = $threshold->getAttribute('water_siaga1') ?? $threshold->getAttribute('siaga1') ?? 50;
                 $batasSiaga2 = $threshold->getAttribute('water_siaga2') ?? $threshold->getAttribute('siaga2') ?? 100;
 
-                if ($actualWater >= $batasSiaga3) {
-                    $siagaStatus = '1';
-                } elseif ($actualWater >= $batasSiaga2) {
-                    $siagaStatus = '2';
+                if ($actualWater <= $batasSiaga1) {
+                    $siagaStatus = '1'; // jarak <= siaga1 = air sangat tinggi = BAHAYA
+                } elseif ($actualWater <= $batasSiaga2) {
+                    $siagaStatus = '2'; // jarak <= siaga2 = air sedang tinggi = WASPADA
                 }
 
                 $server   = env('MQTT_HOST', 'broker.hivemq.com');

@@ -34,16 +34,20 @@ class AiPredictionController extends Controller
         $siagaLevel = 3; // default: normal / aman
 
         if ($threshold) {
-            // Siaga 3 = threshold tertinggi = paling bahaya (dipicu terakhir)
-            $waterSiaga3 = $threshold->water_siaga3 ?? $threshold->siaga3 ?? 150;
+            // Water sensor = ultrasonik (JARAK ke permukaan air)
+            // Jarak KECIL = air TINGGI = BAHAYA → gunakan <=
+            // Siaga 1 = threshold jarak terkecil (paling berbahaya)
+            $waterSiaga1 = $threshold->water_siaga1 ?? $threshold->siaga1 ?? 50;
+            $waterSiaga2 = $threshold->water_siaga2 ?? $threshold->siaga2 ?? 100;
+
+            // Sensor lain (hujan, angin): lebih tinggi = lebih bahaya → gunakan >=
+            // Siaga 3 = threshold tertinggi = paling bahaya untuk sensor normal
             $rainSiaga3  = $threshold->rain_siaga3  ?? 100;
             $windSiaga3  = $threshold->wind_siaga3  ?? 20;
             $tempSiaga3  = $threshold->temp_siaga3  ?? 40;
             $humiditySiaga3 = $threshold->humidity_siaga3 ?? 95;
             $pressureSiaga3 = $threshold->pressure_siaga3 ?? 1030;
 
-            // Siaga 2 = threshold menengah
-            $waterSiaga2 = $threshold->water_siaga2 ?? $threshold->siaga2 ?? 100;
             $rainSiaga2  = $threshold->rain_siaga2  ?? 70;
             $windSiaga2  = $threshold->wind_siaga2  ?? 15;
             $tempSiaga2  = $threshold->temp_siaga2  ?? 35;
@@ -51,23 +55,23 @@ class AiPredictionController extends Controller
             $pressureSiaga2 = $threshold->pressure_siaga2 ?? 1010;
 
             if (
-                $water    >= $waterSiaga3    ||
+                $water    <= $waterSiaga1    ||  // jarak <= threshold kritis (air tinggi)
                 $rain     >= $rainSiaga3     ||
                 $wind     >= $windSiaga3     ||
                 $temp     >= $tempSiaga3     ||
                 $humidity >= $humiditySiaga3 ||
                 $pressure >= $pressureSiaga3
             ) {
-                $siagaLevel = 1; // Siaga 1 = BAHAYA (MQTT '1' = merah di dashboard)
+                $siagaLevel = 1; // SIAGA 1 = BAHAYA
             } elseif (
-                $water    >= $waterSiaga2    ||
+                $water    <= $waterSiaga2    ||  // jarak <= threshold waspada (air sedang tinggi)
                 $rain     >= $rainSiaga2     ||
                 $wind     >= $windSiaga2     ||
                 $temp     >= $tempSiaga2     ||
                 $humidity >= $humiditySiaga2 ||
                 $pressure >= $pressureSiaga2
             ) {
-                $siagaLevel = 2; // Siaga 2 = WASPADA
+                $siagaLevel = 2; // SIAGA 2 = WASPADA
             }
         }
 
