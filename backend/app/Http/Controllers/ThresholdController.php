@@ -71,9 +71,22 @@ class ThresholdController extends Controller
                 $port     = env('MQTT_PORT', 1883);
                 $clientId = 'makesens_api_' . uniqid();
                 $topicOut = env('MQTT_TOPIC_SIAGA', 'makesens/test/tmj/siaga');
-                
+                $username = env('MQTT_USERNAME');
+                $password = env('MQTT_PASSWORD');
+
                 $mqtt = new \PhpMqtt\Client\MqttClient($server, $port, $clientId);
-                $mqtt->connect(null, true);
+
+                $connectionSettings = (new \PhpMqtt\Client\ConnectionSettings())
+                    ->setKeepAliveInterval(60);
+
+                if ($username) {
+                    $connectionSettings->setUsername($username);
+                    if ($password) {
+                        $connectionSettings->setPassword($password);
+                    }
+                }
+
+                $mqtt->connect($connectionSettings, true);
                 $mqtt->publish($topicOut, $siagaStatus, 0, true);
                 $mqtt->disconnect();
             } catch (\Throwable $e) {
