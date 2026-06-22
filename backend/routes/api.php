@@ -131,5 +131,8 @@ Route::prefix('citizen')->group(function () {
 
         // Daftar zona rawan banjir untuk fitur geofence (koordinat + siaga terkini)
         Route::get('/zones',                 [CitizenZoneController::class, 'index']);
+
+        // AI Prediction — citizen apps juga perlu akses prediksi banjir
+        Route::post('/ai-prediction',        [AiPredictionController::class, 'predict']);
     });
 });
