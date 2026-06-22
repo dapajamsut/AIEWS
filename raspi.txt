@@ -1,0 +1,893 @@
+"""
+sensor_main.py (MQTT + XBEE OFFLINE BRIDGE)
+Raspberry Pi → MQTT Broker → Laravel & React
+Mode offline: 
+  1. Buffer SQLite lokal (sync otomatis saat online kembali)
+  2. KIRIM PARALEL via UART → XBee (RF) → ESP32 Public Node (Sirene)
+     supaya sirene di lapangan tetap menyala walau internet putus.
+     ESP Gateway TIDAK diperlukan lagi — XBee menggantikan ESP-NOW path.
+
+Threshold & Siaga:
+  - Diambil dari API Laravel /api/thresholds (sama persis dengan Dashboard.tsx)
+  - Algoritma siaga = predictive ETA berbasis fisika (mirror Dashboard.tsx)
+  - Auto-refresh tiap 60 detik di background, fallback ke default kalau API offline.
+
+Anemometer:
+  - Pulse counting via GPIO interrupt (mirip ISR RISING di ESP32)
+  - Debounce    : 5 ms                        (sama dengan ESP32)
+  - Window hitung: 10 detik                   (sama dengan ESP32)
+  - Formula     : (-0.0181*rps²)+(1.3859*rps)+1.4055  [m/s]
+  - Threshold   : ≤ 1.5 m/s → 0.0            (sama dengan ESP32)
+  - Kirim MQTT  : tiap 2 detik pakai nilai cache hasil kalkulasi 10 detik
+                  (selama 10 detik, nilai yang sama dikirim terus — normal)
+
+Wiring UART ke XBee A (LEVEL 3.3 V — XBee native 3.3V, tidak perlu level shifter):
+  Raspi 3.3V  (Pin 1)        ──►  XBee A VCC  (Pin 1)
+  Raspi GND   (Pin 6)        ───  XBee A GND  (Pin 10)
+  Raspi GPIO14 (TXD, Pin 8)  ──►  XBee A DIN  (Pin 3)
+  Raspi GPIO15 (RXD, Pin 10) ◄──  XBee A DOUT (Pin 2)
+
+XBee B dipasang di ESP32 Public Node (GPIO16 RX2 / GPIO17 TX2).
+Kedua XBee dikonfigurasi AT Transparent mode, PAN ID sama, baud 115200.
+Data JSON dikirim ke XBee A → RF → XBee B → UART ke ESP32.
+
+Aktifkan UART di Raspi dulu:
+  sudo raspi-config → Interface Options → Serial Port
+    - Login shell over serial : NO
+    - Serial port hardware    : YES
+  Lalu reboot. Port yang dipakai: /dev/serial0
+"""
+
+import RPi.GPIO as GPIO
+import time
+import threading
+import statistics
+import sqlite3
+import json
+import uuid
+from datetime import datetime
+from collections import deque
+
+try:
+    import smbus2
+    import bme280
+    BME_IMPORTS_AVAILABLE = True
+except ImportError:
+    BME_IMPORTS_AVAILABLE = False
+    print("⚠️  smbus2 atau bme280 belum terpasang → BME280 dinonaktifkan")
+    print("   pasang dengan: pip3 install smbus2 RPi.bme280")
+
+import paho.mqtt.client as mqtt
+
+try:
+    import serial                          # pyserial
+    PYSERIAL_AVAILABLE = True
+except ImportError:
+    PYSERIAL_AVAILABLE = False
+    print("⚠️  pyserial belum terpasang → fallback UART ke XBee nonaktif")
+    print("   pasang dengan: pip3 install pyserial")
+
+try:
+    import requests                        # ambil threshold dari API Laravel
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    print("⚠️  requests belum terpasang → fetch threshold dari API nonaktif")
+    print("   pasang dengan: pip3 install requests")
+
+# ══════════════════════════════════════════════════════════════════
+# ⚙️  KONFIG MQTT
+# ══════════════════════════════════════════════════════════════════
+
+MQTT_BROKER = "34.101.128.243"   # IP publik VPS (Mosquitto Docker, anonim diizinkan)
+MQTT_PORT   = 1883
+MQTT_TOPIC  = "makesens/test/tmj"
+CLIENT_ID   = "raspi1"
+
+LOOP_DELAY = 2          # detik — interval kirim MQTT
+DB_PATH    = "ews_buffer.db"
+MAX_BUFFER = 2000       # maks row buffer (~66 menit @ 2s)
+SYNC_BATCH = 20         # kirim N baris per siklus sync
+
+# ══════════════════════════════════════════════════════════════════
+# 🔌  KONFIG UART → XBee A (offline path via RF)
+# ══════════════════════════════════════════════════════════════════
+
+UART_PORT      = "/dev/serial0"   # /dev/ttyAMA0 (RPi3/4) atau /dev/ttyS0 → ke XBee A
+UART_BAUD      = 115200           # harus sama dengan konfigurasi AT ATBD di XBee
+UART_TIMEOUT   = 3.0              # timeout untuk sinkronisasi XBee
+UART_SEND_EVEN_WHEN_ONLINE = True # True → selalu kirim ke XBee juga,
+                                  # supaya sirene tetap up-to-date jika internet putus tiba-tiba
+
+# Threshold siaga diambil dari API Laravel (sama dengan Dashboard).
+# Endpoint Laravel:
+#   GET /api/thresholds?type=siaga    → {"siaga1":{"water":..}, "siaga2":..., "siaga3":...}
+#   GET /api/thresholds?type=physics  → {"w":..,"s":..,"n":..,"a_das":..,"c":..,"l_segment":..}
+# Header: apikey: pikel2 (sama dengan Dashboard.tsx)
+API_BASE_URL       = "https://makesens.my.id"          # ← ganti kalau backend Laravel di host lain
+API_KEY            = "pikel2"
+API_TIMEOUT_S      = 4.0
+THRESHOLD_REFRESH_S = 60.0                              # refresh tiap 60 detik
+
+# Default fallback (dipakai kalau API belum bisa diakses sama sekali) — angka
+# default disamakan dengan default state di Dashboard.tsx.
+DEFAULT_THRESHOLDS = {
+    "siaga1_water_cm": 30.0,
+    "siaga2_water_cm": 50.0,
+    "siaga3_water_cm": 200.0,
+}
+DEFAULT_PHYSICS = {
+    "w":         15.0,           # lebar saluran (m)
+    "S":          0.001,         # kemiringan
+    "n":          0.035,         # Manning's n
+    "A_DAS":      10_000_000.0,  # luas DAS (m²)
+    "C":          0.75,          # koefisien runoff
+    "L_segment":  1000.0,        # panjang segmen (m)
+}
+
+# ── Pin GPIO ─────────────────────────────────────────────────────
+TRIG      = 23          # Ultrasonik TRIG
+ECHO      = 22          # Ultrasonik ECHO (diubah ke 22 untuk menghindari konflik)
+RAIN_PIN  = 10          # Tipping bucket (BCM GPIO10, Pin Fisik 19)
+ANEMO_PIN = 27          # Anemometer pulse (BCM GPIO27, Pin Fisik 13)
+
+# ── Pin GPIO Relay 4 Channel ─────────────────────────────────────
+RELAY_MERAH  = 5           # BCM GPIO5  (Pin Fisik 29)
+RELAY_KUNING = 6           # BCM GPIO6  (Pin Fisik 31)
+RELAY_HIJAU  = 12          # BCM GPIO12 (Pin Fisik 32)
+RELAY_BUZZER = 13          # BCM GPIO13 (Pin Fisik 33)
+
+# Konfigurasi tipe relay (Active-LOW / Active-HIGH dengan wiring NO)
+# Menggunakan NO (Normally Open):
+# - Untuk menyalakan relay (ON), koil harus diaktifkan (diberi logika LOW pada modul active-low)
+# - Untuk mematikan relay (OFF), koil dinonaktifkan (diberi logika HIGH pada modul active-low)
+RELAY_ON  = GPIO.LOW
+RELAY_OFF = GPIO.HIGH
+
+
+# ── Ultrasonic ───────────────────────────────────────────────────
+TEMPERATURE_C = 28.0
+MIN_VALID_CM  = 20.0
+MAX_VALID_CM  = 450.0
+SAMPLE_COUNT  = 9
+INTER_PING    = 0.07
+# Kalibrasi Sensor (Model Linear: y = Gain * x + Offset)
+# Diturunkan dari 2 titik acuan: 158cm (mentah 154.0cm) & 55cm (mentah 51.4cm)
+CALIBRATION_GAIN = 1.004
+CALIBRATION_OFFSET = 3.4
+
+# ── Rain gauge ───────────────────────────────────────────────────
+DEBOUNCE   = 0.25       # detik
+MM_PER_TIP = 0.2        # mm per tip
+
+# ── Anemometer ───────────────────────────────────────────────────
+ANEMO_MEASURE_S   = 10.0   # window kalkulasi (detik) — sama ESP32
+ANEMO_DEBOUNCE_US = 5000   # 5 ms debounce (µs)       — sama ESP32
+ANEMO_MIN_MPS     = 1.5    # threshold minimum (m/s)  — sama ESP32
+
+# ══════════════════════════════════════════════════════════════════
+# 🌡️  BME280
+# ══════════════════════════════════════════════════════════════════
+
+try:
+    if BME_IMPORTS_AVAILABLE:
+        # Menggunakan Hardware I2C Bus 1 (SDA = Pin 3 / GPIO 2, SCL = Pin 5 / GPIO 3)
+        bus = smbus2.SMBus(1)
+        try:
+            BME_ADDRESS = 0x76
+            calibration_params = bme280.load_calibration_params(bus, BME_ADDRESS)
+            BME_AVAILABLE = True
+            print("✅ BME280 terdeteksi di alamat 0x76 (Bus 1)")
+        except Exception:
+            try:
+                BME_ADDRESS = 0x77
+                calibration_params = bme280.load_calibration_params(bus, BME_ADDRESS)
+                BME_AVAILABLE = True
+                print("✅ BME280 terdeteksi di alamat 0x77 (Bus 1)")
+            except Exception:
+                BME_AVAILABLE = False
+                print("⚠️  BME280 tidak terdeteksi di alamat 0x76 maupun 0x77 (Bus 1)")
+    else:
+        BME_AVAILABLE = False
+except Exception as e:
+    BME_AVAILABLE = False
+    print(f"⚠️  Gagal inisialisasi I2C Bus 1: {e}")
+
+# ══════════════════════════════════════════════════════════════════
+# 🌐 MQTT CLIENT
+# ══════════════════════════════════════════════════════════════════
+
+is_offline = True
+
+def on_connect(client, userdata, flags, rc):
+    global is_offline
+    if rc == 0:
+        is_offline = False
+        print("\n  [MQTT] ✅ Terhubung ke Broker!")
+    else:
+        is_offline = True
+        print(f"\n  [MQTT] ❌ Gagal terhubung, kode: {rc}")
+
+def on_disconnect(client, userdata, rc):
+    global is_offline
+    is_offline = True
+    print("\n  [MQTT] ⚠️  Terputus dari Broker!")
+
+mqtt_client = mqtt.Client(client_id=CLIENT_ID)
+mqtt_client.on_connect = on_connect
+mqtt_client.on_disconnect = on_disconnect
+
+# ══════════════════════════════════════════════════════════════════
+# 🔌 UART CLIENT KE XBEE A (→ RF → XBee B → ESP32 Public Node)
+# ══════════════════════════════════════════════════════════════════
+
+uart_serial = None
+uart_seq    = 0
+uart_lock   = threading.Lock()
+
+def init_uart():
+    """Buka port UART. Tidak fatal jika gagal — sistem tetap jalan tanpa offline-bridge."""
+    global uart_serial
+    if not PYSERIAL_AVAILABLE:
+        return False
+    try:
+        uart_serial = serial.Serial(
+            port=UART_PORT,
+            baudrate=UART_BAUD,
+            bytesize=serial.EIGHTBITS,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            timeout=UART_TIMEOUT,
+        )
+        time.sleep(1.0)
+        uart_serial.reset_input_buffer()
+        uart_serial.reset_output_buffer()
+        print(f"  [UART] ✅ Port {UART_PORT} @ {UART_BAUD} terbuka → XBee (RF bridge)")
+        return True
+    except Exception as e:
+        print(f"  [UART] ❌ Gagal buka {UART_PORT}: {e}")
+        uart_serial = None
+        return False
+
+# ── Threshold cache + fetcher (mirror Dashboard.tsx) ─────────────
+_state = {
+    "thresholds": {
+        "siaga1_water_cm": DEFAULT_THRESHOLDS["siaga1_water_cm"],
+        "siaga2_water_cm": DEFAULT_THRESHOLDS["siaga2_water_cm"],
+        "siaga3_water_cm": DEFAULT_THRESHOLDS["siaga3_water_cm"],
+    },
+    "physics":           dict(DEFAULT_PHYSICS),
+    "last_fetch_ok":     0.0,
+    "last_fetch_try":    0.0,
+    "source":            "DEFAULT",     # 'API' atau 'DEFAULT'
+}
+_state_lock = threading.Lock()
+
+def _fetch_thresholds_once() -> bool:
+    """Sekali fetch /api/thresholds?type=siaga & ?type=physics. Return True kalau sukses."""
+    if not REQUESTS_AVAILABLE:
+        return False
+
+    headers = {"apikey": API_KEY}
+    ok      = False
+
+    # 1) Siaga thresholds
+    try:
+        r = requests.get(
+            f"{API_BASE_URL}/api/thresholds",
+            params={"type": "siaga"},
+            headers=headers,
+            timeout=API_TIMEOUT_S,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            with _state_lock:
+                _state["thresholds"]["siaga1_water_cm"] = float(
+                    (data.get("siaga1") or {}).get("water",
+                        DEFAULT_THRESHOLDS["siaga1_water_cm"]))
+                _state["thresholds"]["siaga2_water_cm"] = float(
+                    (data.get("siaga2") or {}).get("water",
+                        DEFAULT_THRESHOLDS["siaga2_water_cm"]))
+                _state["thresholds"]["siaga3_water_cm"] = float(
+                    (data.get("siaga3") or {}).get("water",
+                        DEFAULT_THRESHOLDS["siaga3_water_cm"]))
+            ok = True
+        else:
+            print(f"  [TH] ⚠️ /thresholds?type=siaga http {r.status_code}")
+    except Exception as e:
+        print(f"  [TH] ❌ siaga fetch error: {e}")
+
+    # 2) Physics params (case-insensitive — Dashboard pakai key lowercase)
+    try:
+        r = requests.get(
+            f"{API_BASE_URL}/api/thresholds",
+            params={"type": "physics"},
+            headers=headers,
+            timeout=API_TIMEOUT_S,
+        )
+        if r.status_code == 200:
+            p = r.json() or {}
+            with _state_lock:
+                _state["physics"]["w"]         = float(p.get("w",         DEFAULT_PHYSICS["w"]))
+                _state["physics"]["S"]         = float(p.get("s",         DEFAULT_PHYSICS["S"]))
+                _state["physics"]["n"]         = float(p.get("n",         DEFAULT_PHYSICS["n"]))
+                _state["physics"]["A_DAS"]     = float(p.get("a_das",     DEFAULT_PHYSICS["A_DAS"]))
+                _state["physics"]["C"]         = float(p.get("c",         DEFAULT_PHYSICS["C"]))
+                _state["physics"]["L_segment"] = float(p.get("l_segment", DEFAULT_PHYSICS["L_segment"]))
+            ok = True
+        else:
+            print(f"  [TH] ⚠️ /thresholds?type=physics http {r.status_code}")
+    except Exception as e:
+        print(f"  [TH] ❌ physics fetch error: {e}")
+
+    with _state_lock:
+        _state["last_fetch_try"] = time.time()
+        if ok:
+            _state["last_fetch_ok"] = time.time()
+            _state["source"]        = "API"
+    return ok
+
+def threshold_refresher_loop():
+    """Daemon: refresh threshold tiap THRESHOLD_REFRESH_S detik."""
+    # Fetch awal langsung (jangan tunggu interval pertama)
+    if _fetch_thresholds_once():
+        with _state_lock:
+            th = dict(_state["thresholds"])
+        print(f"  [TH] ✅ Threshold dari API → "
+              f"S1={th['siaga1_water_cm']:.0f}cm "
+              f"S2={th['siaga2_water_cm']:.0f}cm "
+              f"S3={th['siaga3_water_cm']:.0f}cm")
+    else:
+        print(f"  [TH] ⚠️ Pakai DEFAULT — API belum bisa diakses")
+
+    while True:
+        time.sleep(THRESHOLD_REFRESH_S)
+        try:
+            _fetch_thresholds_once()
+        except Exception as e:
+            print(f"  [TH] ❌ refresh error: {e}")
+
+def compute_siaga(distance_cm: float, rain_mm_per_hr: float = 0.0) -> int:
+    """
+    Hitung level siaga lokal — REPLIKASI PERSIS dari Dashboard.tsx
+    (predictive ETA berbasis fisika, bukan threshold langsung).
+
+    Input:
+      distance_cm     : tinggi air dari sensor (cm)
+      rain_mm_per_hr  : intensitas hujan (mm) — di Dashboard pakai value sensor TIP-01
+                        (akumulasi mm), tapi rumus aslinya I dalam mm/jam.
+                        Kita ikut perilaku Dashboard apa adanya supaya hasilnya identik.
+
+    Aturan (mirror Dashboard.tsx):
+      1. Jika h_cm >= siaga1.water → SIAGA 1
+      2. Hitung qHujan = C * (I/3.6e6) * A_DAS
+      3. Jika qHujan > 0:
+           etaHours = volume_sisa / qHujan / 3600
+           extreme  = (I >= 100 AND etaHours < 3)
+           etaHours <= 2 atau extreme → SIAGA 1
+           etaHours <= 4              → SIAGA 2
+           else                       → SIAGA 3
+      4. Jika qHujan == 0 (tidak hujan):
+           h_cm >= siaga2.water → SIAGA 2
+           else                 → SIAGA 3
+    """
+    if distance_cm is None or distance_cm <= 0:
+        return 3
+
+    th = _state["thresholds"]
+    ph = _state["physics"]
+
+    s1 = th["siaga1_water_cm"]
+    s2 = th["siaga2_water_cm"]
+
+    h_cm = float(distance_cm)
+    h    = h_cm / 100.0                         # cm → m
+    I    = float(rain_mm_per_hr)
+
+    # Rule 1: sudah lewat siaga 1
+    if h_cm <= s1:
+        return 1
+
+    siaga1_m     = s1 / 100.0
+    sisa_tinggi  = h - siaga1_m                 # m
+
+    # Rule 2: ada hujan
+    qHujan = ph["C"] * (I / 3_600_000.0) * ph["A_DAS"]
+    if qHujan > 0:
+        volume_sisa = sisa_tinggi * ph["w"] * ph["L_segment"]   # m³
+        eta_hours   = (volume_sisa / qHujan) / 3600.0
+        is_extreme  = (I >= 100.0) and (eta_hours < 3.0)
+
+        if eta_hours <= 2.0 or is_extreme:
+            return 1
+        elif eta_hours <= 4.0:
+            return 2
+        else:
+            return 3
+
+    # Rule 3: tidak hujan → fallback ke threshold langsung
+    if h_cm <= s2:
+        return 2
+    return 3
+
+def send_to_gateway(distance_cm, total_mm, rain_intensity_mm_hr, wind, suhu, hum, pres):
+    """
+    Kirim 1 baris JSON (newline-terminated) ke ESP32 Public Node via XBee RF.
+    XBee A (Raspi) → RF 2.4GHz → XBee B (ESP32) → UART ke ESP32.
+    Mode transparent: apapun yang masuk ke DIN langsung dikirim ke DOUT pair-nya.
+    """
+    global uart_seq
+    if uart_serial is None:
+        return False, "UART tidak tersedia"
+
+    uart_seq += 1
+    payload = {
+        "siaga": compute_siaga(distance_cm, rain_intensity_mm_hr),
+        "water": round(distance_cm, 1) if distance_cm else 0.0,
+        "rain":  round(total_mm, 2),
+        "wind":  round(wind, 2),
+        "temp":  round(suhu, 1),
+        "hum":   round(hum, 1),
+        "pres":  round(pres, 1),
+        "seq":   uart_seq,
+    }
+    line = json.dumps(payload, separators=(",", ":")) + "\n"
+
+    try:
+        with uart_lock:
+            uart_serial.write(line.encode("utf-8"))
+            uart_serial.flush()
+        return True, f"siaga={payload['siaga']} seq={uart_seq}"
+    except Exception as e:
+        # Coba reopen sekali untuk hot-recovery
+        try:
+            uart_serial.close()
+        except Exception:
+            pass
+        init_uart()
+        return False, f"UART error: {e}"
+
+# ── Rain Gauge ISR ───────────────────────────────────────────────
+_rain_lock  = threading.Lock()
+_rain_tips  = []
+_total_tips = 0
+_last_tip_t = 0.0
+
+def _rain_isr(channel):
+    global _total_tips, _last_tip_t
+    now = time.time()
+    with _rain_lock:
+        if (now - _last_tip_t) >= DEBOUNCE:
+            _total_tips += 1
+            _rain_tips.append(now)
+            _last_tip_t = now
+
+# ══════════════════════════════════════════════════════════════════
+# GPIO SETUP
+# ══════════════════════════════════════════════════════════════════
+
+GPIO.setwarnings(False)
+GPIO.cleanup()
+GPIO.setmode(GPIO.BCM)
+
+GPIO.setup(TRIG,      GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(ECHO,      GPIO.IN)
+GPIO.setup(RAIN_PIN,  GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.add_event_detect(RAIN_PIN, GPIO.FALLING, callback=_rain_isr, bouncetime=250)
+GPIO.setup(ANEMO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+# Setup Relay 4 Channel (inisialisasi RELAY_OFF)
+GPIO.setup(RELAY_HIJAU,  GPIO.OUT, initial=RELAY_OFF)
+GPIO.setup(RELAY_KUNING, GPIO.OUT, initial=RELAY_OFF)
+GPIO.setup(RELAY_MERAH,  GPIO.OUT, initial=RELAY_OFF)
+GPIO.setup(RELAY_BUZZER, GPIO.OUT, initial=RELAY_OFF)
+
+# ══════════════════════════════════════════════════════════════════
+# KONTROL RELAY NON-BLOCKING (Lampu Tower & Sirine)
+# ══════════════════════════════════════════════════════════════════
+last_buzzer_toggle = 0.0
+buzzer_state = False
+last_siaga = -1
+
+def update_relays(siaga):
+    global last_buzzer_toggle, buzzer_state, last_siaga
+    now = time.time()
+
+    # Reset state saat status siaga berubah
+    if siaga != last_siaga:
+        last_siaga = siaga
+        last_buzzer_toggle = now
+        if siaga == 2:
+            buzzer_state = True
+        elif siaga == 1:
+            buzzer_state = True
+        else:
+            buzzer_state = False
+
+    # Terapkan state lampu & buzzer secara berkelanjutan
+    if siaga == 1:
+        # Bahaya: Merah nyala, lainnya mati, buzzer nyala terus
+        GPIO.output(RELAY_HIJAU,  RELAY_OFF) # OFF
+        GPIO.output(RELAY_KUNING, RELAY_OFF) # OFF
+        GPIO.output(RELAY_MERAH,  RELAY_ON)  # ON
+        GPIO.output(RELAY_BUZZER, RELAY_ON)  # ON
+    elif siaga == 2:
+        # Waspada: Kuning nyala, lainnya mati
+        GPIO.output(RELAY_HIJAU,  RELAY_OFF) # OFF
+        GPIO.output(RELAY_KUNING,  RELAY_ON)  # ON
+        GPIO.output(RELAY_MERAH,  RELAY_OFF) # OFF
+
+        # Pola bip non-blocking pada Siaga 2: 2s ON, 5s OFF
+        elapsed = now - last_buzzer_toggle
+        if buzzer_state:
+            if elapsed >= 2.0:
+                buzzer_state = False
+                last_buzzer_toggle = now
+            GPIO.output(RELAY_BUZZER, RELAY_ON if buzzer_state else RELAY_OFF)
+        else:
+            if elapsed >= 5.0:
+                buzzer_state = True
+                last_buzzer_toggle = now
+            GPIO.output(RELAY_BUZZER, RELAY_ON if buzzer_state else RELAY_OFF)
+    elif siaga == 3:
+        # Aman: Hijau nyala saja, lainnya mati, buzzer mati
+        GPIO.output(RELAY_HIJAU,  RELAY_ON)  # ON
+        GPIO.output(RELAY_KUNING, RELAY_OFF) # OFF
+        GPIO.output(RELAY_MERAH,  RELAY_OFF) # OFF
+        GPIO.output(RELAY_BUZZER, RELAY_OFF) # OFF
+    else:
+        # Safe default: semua mati
+        GPIO.output(RELAY_HIJAU,  RELAY_OFF)
+        GPIO.output(RELAY_KUNING, RELAY_OFF)
+        GPIO.output(RELAY_MERAH,  RELAY_OFF)
+        GPIO.output(RELAY_BUZZER, RELAY_OFF)
+
+# 💨 ANEMOMETER
+# ══════════════════════════════════════════════════════════════════
+
+_pulse_count   = 0
+_last_pulse_us = 0
+_window_start  = time.time()
+_cached_speed  = 0.0
+_anemo_lock    = threading.Lock()
+
+def _anemo_isr(channel):
+    global _pulse_count, _last_pulse_us
+    now_us = time.monotonic_ns() // 1000
+    with _anemo_lock:
+        if (now_us - _last_pulse_us) >= ANEMO_DEBOUNCE_US:
+            _pulse_count   += 1
+            _last_pulse_us  = now_us
+
+GPIO.add_event_detect(ANEMO_PIN, GPIO.RISING, callback=_anemo_isr)
+
+def _anemo_formula(rps: float) -> float:
+    raw = (-0.0181 * rps * rps) + (1.3859 * rps) + 1.4055
+    return round(raw, 2) if raw > ANEMO_MIN_MPS else 0.0
+
+def anemo_tick():
+    global _pulse_count, _window_start, _cached_speed
+    elapsed = time.time() - _window_start
+    if elapsed < ANEMO_MEASURE_S:
+        return
+
+    with _anemo_lock:
+        pulses       = _pulse_count
+        _pulse_count = 0
+
+    _window_start = time.time()
+    rps           = pulses / elapsed
+    _cached_speed = _anemo_formula(rps)
+
+    print(f"  [ANEMO] 🔄 Window {ANEMO_MEASURE_S:.0f}s → "
+          f"{pulses} pulses | {rps:.3f} rps | {_cached_speed:.2f} m/s")
+
+def anemo_speed() -> float:
+    return _cached_speed
+
+# ══════════════════════════════════════════════════════════════════
+# 🗄️  SQLITE BUFFER (offline fallback)
+# ══════════════════════════════════════════════════════════════════
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS buffer (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT    NOT NULL,
+            payload   TEXT    NOT NULL,
+            sent      INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def buffer_save(payload: list):
+    try:
+        conn  = sqlite3.connect(DB_PATH)
+        count = conn.execute(
+            "SELECT COUNT(*) FROM buffer WHERE sent=0"
+        ).fetchone()[0]
+        if count >= MAX_BUFFER:
+            conn.execute("""
+                DELETE FROM buffer WHERE id IN (
+                    SELECT id FROM buffer WHERE sent=0 ORDER BY id ASC LIMIT 50
+                )
+            """)
+            print("  [BUFFER] ⚠️  Buffer penuh, 50 data terlama dihapus")
+        conn.execute(
+            "INSERT INTO buffer (timestamp, payload) VALUES (?, ?)",
+            (datetime.now().isoformat(), json.dumps(payload))
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"  [BUFFER] ❌ Gagal simpan: {e}")
+
+def buffer_count() -> int:
+    try:
+        conn  = sqlite3.connect(DB_PATH)
+        count = conn.execute(
+            "SELECT COUNT(*) FROM buffer WHERE sent=0"
+        ).fetchone()[0]
+        conn.close()
+        return count
+    except Exception:
+        return 0
+
+def buffer_sync() -> int:
+    if is_offline:
+        return 0
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        rows = conn.execute(
+            "SELECT id, payload FROM buffer WHERE sent=0 ORDER BY id ASC LIMIT ?",
+            (SYNC_BATCH,)
+        ).fetchall()
+        conn.close()
+    except Exception as e:
+        print(f"  [SYNC] ❌ Gagal baca buffer: {e}")
+        return 0
+
+    if not rows:
+        return 0
+
+    success_ids = []
+    for row_id, raw_payload in rows:
+        try:
+            mqtt_client.publish(MQTT_TOPIC, raw_payload, qos=0)
+            success_ids.append(row_id)
+        except Exception:
+            break
+
+    if success_ids:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.execute(
+                f"DELETE FROM buffer WHERE id IN ({','.join('?'*len(success_ids))})",
+                success_ids
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"  [SYNC] ❌ Gagal hapus buffer: {e}")
+
+    return len(success_ids)
+
+# ══════════════════════════════════════════════════════════════════
+# 🌊 ULTRASONIC (HC-SR04)
+# ══════════════════════════════════════════════════════════════════
+
+def read_ultrasonic():
+    sound_speed = (331.3 + 0.606 * TEMPERATURE_C) * 100.0
+    samples     = []
+    for _ in range(SAMPLE_COUNT):
+        GPIO.output(TRIG, False)
+        time.sleep(0.004)
+        GPIO.output(TRIG, True)
+        time.sleep(0.00002)
+        GPIO.output(TRIG, False)
+
+        t0    = time.time()
+        start = None
+        while GPIO.input(ECHO) == 0:
+            start = time.time()
+            if start - t0 > 0.03:
+                break
+
+        t0  = time.time()
+        end = None
+        while GPIO.input(ECHO) == 1:
+            end = time.time()
+            if end - t0 > 0.03:
+                break
+
+        if start and end and end > start:
+            dist = ((end - start) * sound_speed) / 2.0
+            if MIN_VALID_CM <= dist <= MAX_VALID_CM:
+                samples.append(dist)
+        time.sleep(INTER_PING)
+
+    return round(statistics.median(samples), 1) if len(samples) >= 3 else None
+
+# ══════════════════════════════════════════════════════════════════
+# 🌡️  BME280
+# ══════════════════════════════════════════════════════════════════
+
+def read_bme():
+    if not BME_AVAILABLE:
+        return 0.0, 0.0, 0.0
+    try:
+        data = bme280.sample(bus, BME_ADDRESS, calibration_params)
+        return round(data.temperature, 1), round(data.humidity, 1), round(data.pressure, 1)
+    except Exception:
+        return 0.0, 0.0, 0.0
+
+# ══════════════════════════════════════════════════════════════════
+# 📡 SEND MQTT (dengan offline fallback ke SQLite)
+# ══════════════════════════════════════════════════════════════════
+
+def send(payload: list) -> str:
+    if is_offline:
+        buffer_save(payload)
+        return f"OFFLINE | Buffer: {buffer_count()} data"
+
+    pending = buffer_count()
+    if pending > 0:
+        synced = buffer_sync()
+        if synced > 0:
+            print(f"  [SYNC] ✅ {synced} data buffer lama terkirim")
+
+    try:
+        mqtt_client.publish(MQTT_TOPIC, json.dumps(payload), qos=0)
+        return "OK (MQTT Published)"
+    except Exception as e:
+        buffer_save(payload)
+        return f"ERROR ({type(e).__name__}) → disimpan ke buffer"
+
+# ══════════════════════════════════════════════════════════════════
+# 🚀 INIT & MAIN LOOP
+# ══════════════════════════════════════════════════════════════════
+
+init_db()
+init_uart()
+
+# Start background threshold refresher (mirror Dashboard.tsx)
+_th_thread = threading.Thread(target=threshold_refresher_loop, daemon=True)
+_th_thread.start()
+
+mqtt_client.connect_async(MQTT_BROKER, MQTT_PORT, 60)
+mqtt_client.loop_start()
+
+last_distance   = 0.0
+distance_history = deque(maxlen=5) # Rolling median filter untuk 5 data ukur terakhir
+last_rain_state = GPIO.input(RAIN_PIN)
+last_tip_t      = 0.0
+tip_count       = 0
+total_mm        = 0.0
+start_t         = time.time()
+last_send_time  = 0.0
+siaga_now       = 3  # Inisialisasi awal status siaga
+rain_tips       = []
+RAIN_WINDOW_S   = 1800 # 30 menit sliding window
+
+print("=" * 58)
+print("   🌊 EWS BANJIR - SENSOR RUNNING (MQTT + XBEE BRIDGE)")
+print(f"   📦 Buffer DB   : {DB_PATH}")
+print(f"   📡 MQTT        : {MQTT_BROKER}:{MQTT_PORT} ➜ {MQTT_TOPIC}")
+print(f"   🔌 XBee UART   : {UART_PORT} @ {UART_BAUD} ➜ XBee A → RF → XBee B → ESP32")
+print(f"   🌐 API         : {API_BASE_URL}/api/thresholds (refresh @{THRESHOLD_REFRESH_S:.0f}s)")
+print(f"   💨 Anemo       : BCM{ANEMO_PIN} | hitung @{ANEMO_MEASURE_S:.0f}s | kirim @{LOOP_DELAY}s")
+with _state_lock:
+    _t = dict(_state["thresholds"])
+    _src = _state["source"]
+print(f"   🚨 Threshold   : S1={_t['siaga1_water_cm']:.0f}cm  "
+      f"S2={_t['siaga2_water_cm']:.0f}cm  "
+      f"S3={_t['siaga3_water_cm']:.0f}cm  ({_src})")
+print(f"   🧮 Algoritma   : Predictive ETA (mirror Dashboard.tsx)")
+print("=" * 58)
+
+try:
+    while True:
+
+        # ── 🌧️ TIPPING BUCKET (kalkulasi dari ISR) ─────────────────
+        now_t = time.time()
+        with _rain_lock:
+            _rain_tips[:] = [t for t in _rain_tips if now_t - t <= RAIN_WINDOW_S]
+            current_tips = len(_rain_tips)
+            total_tips_now = _total_tips
+        
+        total_mm = total_tips_now * MM_PER_TIP
+        mm_hr = (current_tips * MM_PER_TIP) * (3600.0 / RAIN_WINDOW_S)
+        tip_count = total_tips_now
+
+        # ── 💨 ANEMOMETER TICK ───────────────────────────────────
+        anemo_tick()
+
+        # ── 📡 KIRIM MQTT (tiap 2 detik) ─────────────────────────
+        if time.time() - last_send_time >= LOOP_DELAY:
+
+            result = read_ultrasonic()
+            if result is not None:
+                # Terapkan kalibrasi (Model Linear)
+                calibrated_result = (result * CALIBRATION_GAIN) + CALIBRATION_OFFSET
+                # Masukkan ke rolling history filter
+                distance_history.append(calibrated_result)
+            
+            if len(distance_history) > 0:
+                # Ambil median dari history untuk menstabilkan pembacaan dari derau/noise
+                last_distance = round(statistics.median(distance_history), 1)
+
+            suhu, hum, pres = read_bme()
+            
+            # Bersihkan dan hitung intensitas sliding window 30 menit (diambil dari loop utama)
+            pass
+            
+            wind    = anemo_speed()
+
+            payload = [
+                {"sensor_code": "WATER-01", "type": "water",    "value": last_distance,      "unit": "cm"},
+                {"sensor_code": "TIP-01",   "type": "rain",     "value": round(total_mm, 2), "unit": "mm"},
+                {"sensor_code": "TIP-01-INT", "type": "rain_intensity", "value": round(mm_hr, 2), "unit": "mm/h"},
+                {"sensor_code": "ANEMO-01", "type": "wind",     "value": wind,               "unit": "m/s"},
+                {"sensor_code": "BME-TEMP", "type": "temp",     "value": suhu,               "unit": "°C"},
+                {"sensor_code": "BME-HUM",  "type": "humidity", "value": hum,                "unit": "%"},
+                {"sensor_code": "BME-PRES", "type": "pressure", "value": pres,               "unit": "hPa"},
+            ]
+
+            status_msg = send(payload)
+
+            # ── 🔌 KIRIM JUGA KE XBEE A (→ RF → XBee B → ESP32) ─
+            # Saat OFFLINE  → ini jadi satu-satunya jalur ke sirene lapangan.
+            # Saat ONLINE   → tetap dikirim (default) supaya sirene up-to-date
+            #                 jika nanti tiba-tiba internet putus.
+            uart_status = "skip"
+            if uart_serial is not None and (is_offline or UART_SEND_EVEN_WHEN_ONLINE):
+                ok, info = send_to_gateway(last_distance, total_mm, mm_hr, wind, suhu, hum, pres)
+                uart_status = ("✅ " if ok else "❌ ") + info
+
+            mode_label = "🔴 OFFLINE" if is_offline else "🟢 ONLINE"
+            siaga_now  = compute_siaga(last_distance, mm_hr)
+            with _state_lock:
+                _t_src = _state["source"]
+                _s1 = _state["thresholds"]["siaga1_water_cm"]
+                _s2 = _state["thresholds"]["siaga2_water_cm"]
+                _s3 = _state["thresholds"]["siaga3_water_cm"]
+            print("=" * 58)
+            print(f"  {mode_label}")
+            print(f"  🚨 Siaga Lvl    : {siaga_now}  ({'BAHAYA' if siaga_now==1 else 'WASPADA' if siaga_now==2 else 'AMAN'})")
+            print(f"  📏 Threshold    : S1={_s1:.0f} S2={_s2:.0f} S3={_s3:.0f}cm  ({_t_src})")
+            print(f"  🌊 Water Level  : {last_distance} cm")
+            print(f"  🌧️  Rain Total   : {total_mm:.2f} mm  ({mm_hr:.2f} mm/hr)")
+            print(f"  💨 Wind Speed   : {wind} m/s")
+            print(f"  🌡️  Temperature  : {suhu} °C  💧 Humidity: {hum}%")
+            print(f"  🔧 Pressure     : {pres} hPa")
+            print(f"  📡 MQTT         : {status_msg}")
+            print(f"  🔌 UART→GW      : {uart_status}")
+            print("=" * 58)
+
+            last_send_time = time.time()
+
+        # Update status relay secara non-blocking setiap loop tick (10ms)
+        update_relays(siaga_now)
+
+        time.sleep(0.01)
+
+except KeyboardInterrupt:
+    print("\n" + "=" * 58)
+    print("  ⛔ PROGRAM DIHENTIKAN")
+    print(f"  Total Rain     : {total_mm:.2f} mm ({tip_count} tips)")
+    print(f"  Wind (last)    : {anemo_speed():.2f} m/s")
+    print(f"  Buffer Pending : {buffer_count()} data")
+    print(f"  UART seq sent  : {uart_seq}")
+    print("=" * 58)
+
+finally:
+    GPIO.cleanup()
+    mqtt_client.loop_stop()
+    mqtt_client.disconnect()
+    if uart_serial is not None:
+        try:
+            uart_serial.close()
+        except Exception:
+            pass
