@@ -34,29 +34,31 @@ class AiPredictionController extends Controller
         $siagaLevel = 3; // default: normal / aman
 
         if ($threshold) {
-            $waterSiaga1 = $threshold->water_siaga1 ?? $threshold->siaga1 ?? 400;
-            $rainSiaga1 = $threshold->rain_siaga1 ?? 100;
-            $windSiaga1 = $threshold->wind_siaga1 ?? 20;
-            $tempSiaga1 = $threshold->temp_siaga1 ?? 40;
-            $humiditySiaga1 = $threshold->humidity_siaga1 ?? 95;
-            $pressureSiaga1 = $threshold->pressure_siaga1 ?? 1030;
+            // Siaga 3 = threshold tertinggi = paling bahaya (dipicu terakhir)
+            $waterSiaga3 = $threshold->water_siaga3 ?? $threshold->siaga3 ?? 150;
+            $rainSiaga3  = $threshold->rain_siaga3  ?? 100;
+            $windSiaga3  = $threshold->wind_siaga3  ?? 20;
+            $tempSiaga3  = $threshold->temp_siaga3  ?? 40;
+            $humiditySiaga3 = $threshold->humidity_siaga3 ?? 95;
+            $pressureSiaga3 = $threshold->pressure_siaga3 ?? 1030;
 
-            $waterSiaga2 = $threshold->water_siaga2 ?? $threshold->siaga2 ?? 300;
-            $rainSiaga2 = $threshold->rain_siaga2 ?? 70;
-            $windSiaga2 = $threshold->wind_siaga2 ?? 15;
-            $tempSiaga2 = $threshold->temp_siaga2 ?? 35;
+            // Siaga 2 = threshold menengah
+            $waterSiaga2 = $threshold->water_siaga2 ?? $threshold->siaga2 ?? 100;
+            $rainSiaga2  = $threshold->rain_siaga2  ?? 70;
+            $windSiaga2  = $threshold->wind_siaga2  ?? 15;
+            $tempSiaga2  = $threshold->temp_siaga2  ?? 35;
             $humiditySiaga2 = $threshold->humidity_siaga2 ?? 85;
             $pressureSiaga2 = $threshold->pressure_siaga2 ?? 1010;
 
             if (
-                $water    >= $waterSiaga1    ||
-                $rain     >= $rainSiaga1     ||
-                $wind     >= $windSiaga1     ||
-                $temp     >= $tempSiaga1     ||
-                $humidity >= $humiditySiaga1 ||
-                $pressure >= $pressureSiaga1
+                $water    >= $waterSiaga3    ||
+                $rain     >= $rainSiaga3     ||
+                $wind     >= $windSiaga3     ||
+                $temp     >= $tempSiaga3     ||
+                $humidity >= $humiditySiaga3 ||
+                $pressure >= $pressureSiaga3
             ) {
-                $siagaLevel = 1;
+                $siagaLevel = 1; // Siaga 1 = BAHAYA (MQTT '1' = merah di dashboard)
             } elseif (
                 $water    >= $waterSiaga2    ||
                 $rain     >= $rainSiaga2     ||
@@ -65,7 +67,7 @@ class AiPredictionController extends Controller
                 $humidity >= $humiditySiaga2 ||
                 $pressure >= $pressureSiaga2
             ) {
-                $siagaLevel = 2;
+                $siagaLevel = 2; // Siaga 2 = WASPADA
             }
         }
 

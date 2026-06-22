@@ -105,9 +105,9 @@ class MqttListenCommand extends Command
                     }
 
                     if ($updatedSensors) {
-                        // Ambil Threshold untuk Batas Finis (Siaga 1)
+                        // Ambil Threshold untuk Batas Finis (Siaga 3 = threshold tertinggi = paling bahaya)
                         $thresholds = $this->getThresholds();
-                        $siaga1_cm = $thresholds['siaga1']['water'] ?? 480;
+                        $siaga3_cm = $thresholds['siaga3']['water'] ?? 150; // threshold tertinggi
                         
                         // Default Siaga 3 (Normal in numerical terms for UI) 
                         // Wait, in Dashboard 3 is normal, 2 is warning, 1 is critical
@@ -121,15 +121,15 @@ class MqttListenCommand extends Command
                         $L_segment = $thresholdModel->physics_l_segment ?? 1000;
 
                         $h_m = $siagaValue / 100;
-                        $h_siaga1_m = $siaga1_cm / 100;
+                        $h_siaga3_m = $siaga3_cm / 100;
                         
                         // Ambil intensitas hujan LANGSUNG dari payload (bukan dari DB)
                         $I = $rainValue;
 
-                        if ($siagaValue >= $siaga1_cm) {
+                        if ($siagaValue >= $siaga3_cm) {
                             $siagaStatus = '1'; // Sudah meluap
                         } else {
-                            $sisa_tinggi = $h_siaga1_m - $h_m;
+                            $sisa_tinggi = $h_siaga3_m - $h_m;
                             $volume_sisa = ($sisa_tinggi * $w) * $L_segment;
                             
                             $qHujan = $C * ($I / 3600000) * $A_DAS;
@@ -141,15 +141,15 @@ class MqttListenCommand extends Command
                                 $probability = ($I >= 100 && $etaHours < 3) ? 100 : 0;
 
                                 if ($etaHours <= 2 || $probability >= 90) {
-                                    $siagaStatus = '1'; // Siaga 1 (Bencana < 2 jam atau Hujan Sangat Ekstrem)
+                                    $siagaStatus = '1'; // Siaga 1 = BAHAYA (MQTT '1')
                                 } elseif ($etaHours <= 4) {
-                                    $siagaStatus = '2'; // Siaga 2 (Kritis < 4 jam)
+                                    $siagaStatus = '2'; // Siaga 2 = WASPADA (MQTT '2')
                                 } elseif ($etaHours <= 8) {
-                                    $siagaStatus = '3'; // Siaga 3 (Waspada < 8 jam)
+                                    $siagaStatus = '3'; // Siaga 3 = NORMAL (MQTT '3')
                                 }
                             } else {
                                 // Fallback if no rain but water is dangerously high due to upstream
-                                $siaga2_cm = $thresholds['siaga2']['water'] ?? 350;
+                                $siaga2_cm = $thresholds['siaga2']['water'] ?? 100;
                                 if ($siagaValue >= $siaga2_cm) {
                                     $siagaStatus = '2';
                                 }

@@ -274,19 +274,20 @@ export default function ThresholdPage() {
         siaga3,
       } = thresholds;
 
+      // Siaga 1 < Siaga 2 < Siaga 3 (ascending)
       if (
-        siaga1.water <= siaga2.water
+        siaga1.water >= siaga2.water
       ) {
 
-        return `Nilai SIAGA 1 (${siaga1.water} cm) harus lebih besar dari SIAGA 2 (${siaga2.water} cm).`;
+        return `Nilai SIAGA 1 (${siaga1.water} cm) harus lebih kecil dari SIAGA 2 (${siaga2.water} cm).`;
 
       }
 
       if (
-        siaga2.water <= siaga3.water
+        siaga2.water >= siaga3.water
       ) {
 
-        return `Nilai SIAGA 2 (${siaga2.water} cm) harus lebih besar dari SIAGA 3 (${siaga3.water} cm).`;
+        return `Nilai SIAGA 2 (${siaga2.water} cm) harus lebih kecil dari SIAGA 3 (${siaga3.water} cm).`;
 
       }
 
@@ -479,12 +480,12 @@ export default function ThresholdPage() {
     {
       level: 1 as const,
       label: "SIAGA 1",
-      desc: "Kritis / Bahaya",
-      badge: "bg-red-600 text-white",
-      bg: "bg-red-50/40 dark:bg-red-950/10",
-      border: "border-red-200 dark:border-red-800/50",
-      text: "text-red-700 dark:text-red-400",
-      focusRing: "focus:ring-red-500",
+      desc: "Monitoring / Awal",
+      badge: "bg-blue-500 text-white",
+      bg: "bg-blue-50/40 dark:bg-blue-950/10",
+      border: "border-blue-200 dark:border-blue-800/50",
+      text: "text-blue-700 dark:text-blue-400",
+      focusRing: "focus:ring-blue-500",
     },
     {
       level: 2 as const,
@@ -499,12 +500,12 @@ export default function ThresholdPage() {
     {
       level: 3 as const,
       label: "SIAGA 3",
-      desc: "Normal / Aman",
-      badge: "bg-green-600 text-white",
-      bg: "bg-green-50/40 dark:bg-green-950/10",
-      border: "border-green-200 dark:border-green-800/50",
-      text: "text-green-700 dark:text-green-400",
-      focusRing: "focus:ring-green-500",
+      desc: "Kritis / Bahaya",
+      badge: "bg-red-600 text-white",
+      bg: "bg-red-50/40 dark:bg-red-950/10",
+      border: "border-red-200 dark:border-red-800/50",
+      text: "text-red-700 dark:text-red-400",
+      focusRing: "focus:ring-red-500",
     },
   ];
 
@@ -765,8 +766,9 @@ export default function ThresholdPage() {
             <span>
               Atur ketiga level sekaligus. Nilai harus berurutan secara logis:{" "}
               <strong>
-                SIAGA 1 &gt; SIAGA 2 &gt; SIAGA 3
+                SIAGA 1 &lt; SIAGA 2 &lt; SIAGA 3
               </strong>
+              {" "}— Siaga 3 adalah level tertinggi (Kritis/Bahaya).
             </span>
 
           </div>

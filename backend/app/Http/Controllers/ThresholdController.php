@@ -58,10 +58,11 @@ class ThresholdController extends Controller
                 $actualWater = $waterSensor ? (float) $waterSensor->value : 0;
                 
                 $siagaStatus = '3'; // Default Normal
-                $batasSiaga1 = $threshold->getAttribute('water_siaga1') ?? $threshold->getAttribute('siaga1') ?? 400;
-                $batasSiaga2 = $threshold->getAttribute('water_siaga2') ?? $threshold->getAttribute('siaga2') ?? 300;
+                // siaga3 = threshold tertinggi = paling bahaya → trigger MQTT '1'
+                $batasSiaga3 = $threshold->getAttribute('water_siaga3') ?? $threshold->getAttribute('siaga3') ?? 150;
+                $batasSiaga2 = $threshold->getAttribute('water_siaga2') ?? $threshold->getAttribute('siaga2') ?? 100;
 
-                if ($actualWater >= $batasSiaga1) {
+                if ($actualWater >= $batasSiaga3) {
                     $siagaStatus = '1';
                 } elseif ($actualWater >= $batasSiaga2) {
                     $siagaStatus = '2';
