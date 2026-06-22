@@ -480,12 +480,12 @@ export default function ThresholdPage() {
     {
       level: 1 as const,
       label: "SIAGA 1",
-      desc: "Monitoring / Awal",
-      badge: "bg-blue-500 text-white",
-      bg: "bg-blue-50/40 dark:bg-blue-950/10",
-      border: "border-blue-200 dark:border-blue-800/50",
-      text: "text-blue-700 dark:text-blue-400",
-      focusRing: "focus:ring-blue-500",
+      desc: "Kritis / Bahaya",
+      badge: "bg-red-600 text-white",
+      bg: "bg-red-50/40 dark:bg-red-950/10",
+      border: "border-red-200 dark:border-red-800/50",
+      text: "text-red-700 dark:text-red-400",
+      focusRing: "focus:ring-red-500",
     },
     {
       level: 2 as const,
@@ -500,12 +500,12 @@ export default function ThresholdPage() {
     {
       level: 3 as const,
       label: "SIAGA 3",
-      desc: "Kritis / Bahaya",
-      badge: "bg-red-600 text-white",
-      bg: "bg-red-50/40 dark:bg-red-950/10",
-      border: "border-red-200 dark:border-red-800/50",
-      text: "text-red-700 dark:text-red-400",
-      focusRing: "focus:ring-red-500",
+      desc: "Normal / Aman",
+      badge: "bg-green-600 text-white",
+      bg: "bg-green-50/40 dark:bg-green-950/10",
+      border: "border-green-200 dark:border-green-800/50",
+      text: "text-green-700 dark:text-green-400",
+      focusRing: "focus:ring-green-500",
     },
   ];
 
