@@ -206,8 +206,8 @@ export default function CameraPage() {
   }, [waterSensorValue, thresholds.siaga1.water]);
 
   const getSiagaLevelFromThreshold = (waterLevel: number) => {
-    if (waterLevel >= thresholds.siaga1.water) return { level: "SIAGA 1", status: "Bahaya" };
-    if (waterLevel >= thresholds.siaga2.water) return { level: "SIAGA 2", status: "Waspada" };
+    if (waterLevel <= thresholds.siaga1.water) return { level: "SIAGA 1", status: "Bahaya" };
+    if (waterLevel <= thresholds.siaga2.water) return { level: "SIAGA 2", status: "Waspada" };
     return { level: "SIAGA 3", status: "Normal" };
   };
 
@@ -335,8 +335,8 @@ export default function CameraPage() {
 
   // Kategori level air berdasarkan threshold SIAGA
   const getWaterCategory = (waterLevel: number): "Aman" | "Waspada" | "Bahaya" => {
-    if (waterLevel >= thresholds.siaga1.water) return "Bahaya";
-    if (waterLevel >= thresholds.siaga2.water) return "Waspada";
+    if (waterLevel <= thresholds.siaga1.water) return "Bahaya";
+    if (waterLevel <= thresholds.siaga2.water) return "Waspada";
     return "Aman";
   };
 

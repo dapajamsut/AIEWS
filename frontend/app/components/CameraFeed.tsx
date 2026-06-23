@@ -175,7 +175,7 @@ export default function CameraPage() {
       };
     }
     
-    if (detectedWaterLevel >= thresholds.siaga1.water) {
+    if (detectedWaterLevel <= thresholds.siaga1.water) {
       return {
         level: "Siaga 1 - Bahaya",
         status: "Valid",
@@ -184,7 +184,7 @@ export default function CameraPage() {
       };
     }
     
-    if (detectedWaterLevel >= thresholds.siaga2.water) {
+    if (detectedWaterLevel <= thresholds.siaga2.water) {
       return {
         level: "Siaga 2 - Waspada",
         status: "Valid",
@@ -240,7 +240,7 @@ export default function CameraPage() {
       timestamp: new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
       water_level: detectedWaterLevel,
       siaga_level: currentStatus.level,
-      status: currentStatus.status === "Valid" ? (detectedWaterLevel >= thresholds.siaga1.water ? "Bahaya" : detectedWaterLevel >= thresholds.siaga2.water ? "Waspada" : "Normal") : "Terganggu",
+      status: currentStatus.status === "Valid" ? (detectedWaterLevel <= thresholds.siaga1.water ? "Bahaya" : detectedWaterLevel <= thresholds.siaga2.water ? "Waspada" : "Normal") : "Terganggu",
     };
 
     const existing = localStorage.getItem("camera_water_history");
