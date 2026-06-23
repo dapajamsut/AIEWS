@@ -22,7 +22,7 @@ class AiPredictionController extends Controller
         $sensors = Sensor::latest()->get()->unique('sensor_code')->keyBy('type');
 
         $wind     = (float) ($sensors['wind']->value     ?? 0);
-        $rain     = (float) ($sensors['rain']->value     ?? 0);
+        $rain     = (float) ($sensors['rain_intensity']->value ?? $sensors['rain']->value ?? 0);
         $water    = (float) ($sensors['water']->value    ?? 0);
         $temp     = (float) ($sensors['temp']->value     ?? 0);
         $humidity = (float) ($sensors['humidity']->value ?? 0);

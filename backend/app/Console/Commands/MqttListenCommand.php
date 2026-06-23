@@ -96,7 +96,9 @@ class MqttListenCommand extends Command
                                 $siagaValue = (float) $sensorData['value'];
                             }
 
-                            if ($sensorData['type'] === 'rain') {
+                            if ($sensorData['type'] === 'rain_intensity') {
+                                $rainValue = (float) $sensorData['value'];
+                            } elseif ($sensorData['type'] === 'rain' && !isset($rainValue)) {
                                 $rainValue = (float) $sensorData['value'];
                             }
                             

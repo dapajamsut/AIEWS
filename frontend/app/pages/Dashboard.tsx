@@ -650,7 +650,7 @@ export default function Dashboard() {
   // even if the backend mqtt:listen process is not running or was not restarted.
   useEffect(() => {
     const waterSensor = sensors.find((s: any) => s.type === 'water');
-    const rainSensor = sensors.find((s: any) => s.type === 'rain');
+    const rainSensor = sensors.find((s: any) => s.type === 'rain_intensity') || sensors.find((s: any) => s.type === 'rain');
     if (!waterSensor) return;
 
     const h_cm = Number(waterSensor.value || 0);
