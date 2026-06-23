@@ -657,9 +657,9 @@ export default function Dashboard() {
     const h = h_cm / 100;
     const I = Number(rainSensor?.value || 0);
     const siaga1_m = thresholds.siaga1.water / 100;
-    const sisa_tinggi = siaga1_m - h;
+    const sisa_tinggi = h - siaga1_m;
 
-    if (h_cm >= thresholds.siaga1.water) {
+    if (h_cm <= thresholds.siaga1.water) {
       setSiagaLevel(1);
       return;
     }
@@ -675,14 +675,12 @@ export default function Dashboard() {
         setSiagaLevel(1);
       } else if (etaHours <= 4) {
         setSiagaLevel(2);
-      } else if (etaHours <= 8) {
-        setSiagaLevel(3);
       } else {
         setSiagaLevel(3);
       }
     } else {
       // No rain: check raw water level as fallback
-      if (h_cm >= thresholds.siaga2.water) {
+      if (h_cm <= thresholds.siaga2.water) {
         setSiagaLevel(2);
       } else {
         setSiagaLevel(3);
@@ -849,21 +847,33 @@ export default function Dashboard() {
               <span>Ketinggian Fisik Air Saat Ini <span className="text-[10px] text-gray-400 italic">(Bukan Status Prediksi AI)</span></span>
               <span className="font-mono">{sensors.find(s => s.type === "water")?.value || 0} cm</span>
             </div>
-            <div className="relative h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-              <div
-                className="absolute left-0 top-0 h-full bg-gradient-to-r from-green-500 via-amber-500 to-red-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, ((sensors.find(s => s.type === "water")?.value || 0) / thresholds.siaga1.water) * 100)}%` }}
-              />
-              {/* Threshold markers */}
-              <div className="absolute top-0 h-full w-px bg-white dark:bg-gray-900 z-10" style={{ left: `${(thresholds.siaga3.water / thresholds.siaga1.water) * 100}%` }}></div>
-              <div className="absolute top-0 h-full w-px bg-white dark:bg-gray-900 z-10" style={{ left: `${(thresholds.siaga2.water / thresholds.siaga1.water) * 100}%` }}></div>
-            </div>
-            <div className="flex flex-wrap justify-between mt-1 text-[10px] text-gray-400 dark:text-gray-500 gap-1">
-              <span>0 cm</span>
-              <span>SIAGA 3 ({thresholds.siaga3.water}cm)</span>
-              <span>SIAGA 2 ({thresholds.siaga2.water}cm)</span>
-              <span>SIAGA 1 ({thresholds.siaga1.water}cm)</span>
-            </div>
+            {(() => {
+              const maxDistance = thresholds.siaga3.water + 50;
+              const currentWaterVal = sensors.find(s => s.type === "water")?.value || 0;
+              const dangerPercentage = Math.max(0, Math.min(100, ((maxDistance - currentWaterVal) / (maxDistance - thresholds.siaga1.water)) * 100));
+              const siaga3Percentage = ((maxDistance - thresholds.siaga3.water) / (maxDistance - thresholds.siaga1.water)) * 100;
+              const siaga2Percentage = ((maxDistance - thresholds.siaga2.water) / (maxDistance - thresholds.siaga1.water)) * 100;
+
+              return (
+                <>
+                  <div className="relative h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-green-500 via-amber-500 to-red-500 rounded-full transition-all duration-500"
+                      style={{ width: `${dangerPercentage}%` }}
+                    />
+                    {/* Threshold markers */}
+                    <div className="absolute top-0 h-full w-px bg-white dark:bg-gray-900 z-10" style={{ left: `${siaga3Percentage}%` }}></div>
+                    <div className="absolute top-0 h-full w-px bg-white dark:bg-gray-900 z-10" style={{ left: `${siaga2Percentage}%` }}></div>
+                  </div>
+                  <div className="flex flex-wrap justify-between mt-1 text-[10px] text-gray-400 dark:text-gray-500 gap-1">
+                    <span>{maxDistance} cm (Aman)</span>
+                    <span>SIAGA 3 ({thresholds.siaga3.water}cm)</span>
+                    <span>SIAGA 2 ({thresholds.siaga2.water}cm)</span>
+                    <span>SIAGA 1 ({thresholds.siaga1.water}cm)</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
